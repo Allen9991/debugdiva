@@ -4,6 +4,14 @@ import type { Invoice, LineItem } from "@/lib/types";
 const LABOUR_RATE = 90; // NZD per hour
 const DEMO_JOB_ID = "33333333-3333-3333-3333-333333333333"; // Sarah, 25 Queen Street
 
+// Known sent invoices — once Supabase is connected this comes from the DB
+const SENT_JOB_IDS: Record<string, { sent_at: string; due_date: string }> = {
+  "33333333-3333-3333-3333-333333333335": {
+    sent_at: new Date(Date.now() - 11 * 24 * 60 * 60 * 1000).toISOString(),
+    due_date: new Date(Date.now() - 4 * 24 * 60 * 60 * 1000).toISOString().split("T")[0],
+  },
+};
+
 export async function POST(request: Request) {
   const body = await request.json();
   const job_id = body.job_id ?? DEMO_JOB_ID;
@@ -73,8 +81,9 @@ export async function POST(request: Request) {
     gst,
     total: subtotal + gst,
     gst_enabled: true,
-    due_date: dueDate.toISOString().split("T")[0],
-    status: "draft",
+    due_date: SENT_JOB_IDS[job_id]?.due_date ?? dueDate.toISOString().split("T")[0],
+    status: SENT_JOB_IDS[job_id] ? "sent" : "draft",
+    sent_at: SENT_JOB_IDS[job_id]?.sent_at,
     created_at: new Date().toISOString(),
   };
 
