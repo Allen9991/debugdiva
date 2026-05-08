@@ -33,3 +33,6 @@ coverage/
 # Python cache
 __pycache__/
 *.pyc
+
+# Brain zone dev cache (Claude responses keyed by capture_id)
+tests/cache/
