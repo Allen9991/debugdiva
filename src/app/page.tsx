@@ -88,18 +88,28 @@ export default async function HomePage() {
           </div>
 
           <nav className="space-y-2 text-sm font-medium">
-            <a className="block rounded-2xl bg-slate-950 px-4 py-3 text-white">
+            <a
+              href="/"
+              className="block rounded-2xl bg-slate-950 px-4 py-3 text-white"
+            >
               Today
             </a>
-            <a className="block rounded-2xl px-4 py-3 text-slate-600 hover:bg-slate-100">
+
+            <a
+              href="/jobs"
+              className="block rounded-2xl px-4 py-3 text-slate-600 hover:bg-slate-100"
+            >
               Jobs
             </a>
+
             <a className="block rounded-2xl px-4 py-3 text-slate-600 hover:bg-slate-100">
               Invoices
             </a>
+
             <a className="block rounded-2xl px-4 py-3 text-slate-600 hover:bg-slate-100">
               Quotes
             </a>
+
             <a className="block rounded-2xl px-4 py-3 text-slate-600 hover:bg-slate-100">
               Assistant
             </a>
@@ -207,9 +217,12 @@ export default async function HomePage() {
                   invoice. Send that first because it directly turns completed
                   work into cash.
                 </p>
-                <button className="mt-5 w-full rounded-2xl bg-blue-600 px-4 py-3 text-sm font-semibold text-white hover:bg-blue-700">
-                  Open Sarah’s invoice
-                </button>
+                <a
+                  href="/jobs/33333333-3333-3333-3333-333333333333"
+                  className="mt-5 block w-full rounded-2xl bg-blue-600 px-4 py-3 text-center text-sm font-semibold text-white hover:bg-blue-700"
+                >
+                  Open Sarah’s job
+                </a>
               </section>
 
               <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm md:p-6">
