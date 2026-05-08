@@ -15,13 +15,12 @@ const CLAUDE_MODEL = "claude-sonnet-4-6";
 const BUSINESS_TYPE = "tradie";
 const CACHE_DIR = path.join(process.cwd(), "tests", "cache");
 
-// [PENDING: confirm with Jayden] Using assumed schema for `captures`:
-//   captures(id, kind, raw_text, image_url, audio_url, created_at, processed)
-//   `kind` is 'voice' | 'receipt' (NOT 'type').
-
+// Schema source: supabase/migrations/0001_initial_schema.sql (Jayden).
+// captures(id, user_id, type, raw_text, image_url, audio_url, processed,
+//          job_id, created_at). `type` is 'voice' | 'receipt'.
 type CaptureRow = {
   id: string;
-  kind: "voice" | "receipt";
+  type: "voice" | "receipt";
   raw_text: string | null;
   image_url: string | null;
   audio_url: string | null;
@@ -87,27 +86,15 @@ export async function POST(request: Request) {
     );
   }
 
-  // [PENDING: waiting on Jayden's real Supabase server client]
-  // The current src/lib/supabase/server.ts is a stub. This block assumes
-  // the real client returns a Supabase JS client supporting
-  // `.from().select().eq().single()`.
-  const supabase = createSupabaseServerClient() as unknown as {
-    from: (t: string) => {
-      select: (cols: string) => {
-        eq: (col: string, val: string) => {
-          single: () => Promise<{ data: CaptureRow | null; error: unknown }>;
-        };
-      };
-    };
-  };
+  const supabase = await createSupabaseServerClient();
 
   let capture: CaptureRow | null = null;
   try {
     const { data, error } = await supabase
       .from("captures")
-      .select("id, kind, raw_text, image_url, audio_url, created_at, processed")
+      .select("id, type, raw_text, image_url, audio_url, created_at, processed")
       .eq("id", captureId)
-      .single();
+      .single<CaptureRow>();
     if (error) {
       console.error("[extract] supabase error:", error);
     }
@@ -124,7 +111,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Capture not found" }, { status: 404 });
   }
 
-  if (capture.kind === "receipt") {
+  if (capture.type === "receipt") {
     return NextResponse.json(
       { error: "Receipt extraction coming soon" },
       { status: 501 },
