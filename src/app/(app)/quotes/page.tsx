@@ -44,16 +44,16 @@ export default function QuotesPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center p-6">
+    <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center p-6">
       <div className="text-center max-w-sm">
         <div className="text-5xl mb-4">📝</div>
-        <h1 className="text-2xl font-bold text-gray-900 mb-2">Quotes</h1>
-        <p className="text-gray-500 mb-8">
+        <h1 className="text-2xl font-bold tracking-tight text-slate-950 mb-2">Quotes</h1>
+        <p className="text-slate-500 mb-8">
           Send professional quotes before the job starts.
         </p>
 
         {error && (
-          <div className="mb-4 bg-red-50 border border-red-200 rounded-lg p-3 text-red-700 text-sm">
+          <div className="mb-4 bg-red-50 border border-red-200 rounded-2xl p-3 text-red-700 text-sm">
             {error}
           </div>
         )}
@@ -61,11 +61,11 @@ export default function QuotesPage() {
         <button
           onClick={createDemoQuote}
           disabled={loading}
-          className="w-full bg-gray-900 text-white font-bold py-4 rounded-xl text-lg hover:bg-gray-800 active:scale-95 transition-all disabled:opacity-50"
+          className="w-full bg-slate-950 text-white font-bold py-4 rounded-2xl text-lg hover:bg-slate-800 active:scale-95 transition-all disabled:opacity-50"
         >
           {loading ? "Creating quote..." : "Create Quote — Bealey Ave Job"}
         </button>
-        <p className="text-gray-400 text-xs mt-3">
+        <p className="text-slate-400 text-xs mt-3">
           Demo: James Wilson, 14 Bealey Ave tap replacement
         </p>
       </div>
