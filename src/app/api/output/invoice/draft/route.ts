@@ -1,39 +1,59 @@
 import { calculateNzGst } from "@/lib/gst";
-import type { Invoice, Job } from "@/lib/types";
+import type { Invoice, LineItem } from "@/lib/types";
 
-const DEMO_JOB: Job = {
-  id: "demo",
-  title: "Leak repair at 25 Queen Street",
-  client_name: "Sarah",
-  client_email: "sarah@example.com",
-  job_description: "Leak repair at 25 Queen Street. Job tested and complete.",
-  address: "25 Queen Street",
-  line_items: [
-    { id: "1", description: "Labour - leak repair", quantity: 2, unit_price: 75, total: 150, type: "labour" },
-    { id: "2", description: "Sealant", quantity: 1, unit_price: 15, total: 15, type: "material" },
-    { id: "3", description: "Pipe fitting", quantity: 1, unit_price: 25, total: 25, type: "material" },
-    { id: "4", description: "Replacement valve", quantity: 1, unit_price: 35, total: 35, type: "material" },
-  ],
-  labour_total: 150,
-  materials_total: 75,
-  status: "complete",
-  created_at: new Date().toISOString(),
-};
+const LABOUR_RATE = 90; // NZD per hour
+const DEMO_JOB_ID = "33333333-3333-3333-3333-333333333333"; // Sarah, 25 Queen Street
 
 export async function POST(request: Request) {
-  const { job_id } = await request.json();
-  
-  // Once jayden's DB schema is set up replace the next line with:
-  // const supabase = createSupabaseServerClient()
-  // const { data: job } = await supabase.from("jobs").select("*").eq("id", job_id).single()
-  const job: Job = DEMO_JOB;
-  const warnings: string[] = [];
+  const body = await request.json();
+  const job_id = body.job_id ?? DEMO_JOB_ID;
 
-  if (!job.client_email) {
+  // Fetch job + client from Jayden's jobs API
+  const origin = new URL(request.url).origin;
+  const jobRes = await fetch(`${origin}/api/jobs/${job_id}`);
+
+  if (!jobRes.ok) {
+    return Response.json({ error: "Job not found" }, { status: 404 });
+  }
+
+  const { job, client } = await jobRes.json();
+
+  const warnings: string[] = [];
+  if (!client?.email) {
     warnings.push("No client email on file — invoice can't be sent digitally");
   }
 
-  const subtotal = job.labour_total + job.materials_total;
+  // Transform Jayden's job format into our line items
+  const labourTotal = (job.labour_hours ?? 0) * LABOUR_RATE;
+  const materialsTotal = (job.materials as { name: string; cost: number }[]).reduce(
+    (sum, m) => sum + m.cost,
+    0
+  );
+
+  const lineItems: LineItem[] = [
+    ...(job.labour_hours > 0
+      ? [
+          {
+            id: crypto.randomUUID(),
+            description: "Labour",
+            quantity: job.labour_hours,
+            unit_price: LABOUR_RATE,
+            total: labourTotal,
+            type: "labour" as const,
+          },
+        ]
+      : []),
+    ...(job.materials as { name: string; cost: number }[]).map((m) => ({
+      id: crypto.randomUUID(),
+      description: m.name,
+      quantity: 1,
+      unit_price: m.cost,
+      total: m.cost,
+      type: "material" as const,
+    })),
+  ];
+
+  const subtotal = labourTotal + materialsTotal;
   const gst = calculateNzGst(subtotal);
 
   const dueDate = new Date();
@@ -43,12 +63,12 @@ export async function POST(request: Request) {
     id: crypto.randomUUID(),
     job_id: job.id,
     invoice_number: `INV-${Date.now().toString().slice(-6)}`,
-    client_name: job.client_name,
-    client_email: job.client_email,
-    job_description: job.job_description,
-    line_items: job.line_items,
-    labour_total: job.labour_total,
-    materials_total: job.materials_total,
+    client_name: client?.name ?? "Unknown client",
+    client_email: client?.email,
+    job_description: job.description,
+    line_items: lineItems,
+    labour_total: labourTotal,
+    materials_total: materialsTotal,
     subtotal,
     gst,
     total: subtotal + gst,

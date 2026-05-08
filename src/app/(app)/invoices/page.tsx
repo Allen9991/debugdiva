@@ -17,7 +17,7 @@ export default function InvoicesPage() {
       const res = await fetch("/api/output/invoice/draft", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ job_id: "demo" }),
+        body: JSON.stringify({ job_id: "33333333-3333-3333-3333-333333333333" }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Failed to create invoice");
