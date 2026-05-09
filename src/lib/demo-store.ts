@@ -61,6 +61,16 @@ export type DemoQuote = {
   created_at: string;
 };
 
+export type DemoDraftEmail = {
+  id: string;
+  client_name: string;
+  client_email?: string;
+  subject: string;
+  body: string;
+  created_at: string;
+  updated_at: string;
+};
+
 export type DemoNotification = {
   id: string;
   title: string;
@@ -74,6 +84,7 @@ type DemoState = {
   jobs: DemoJob[];
   invoices: DemoInvoice[];
   quotes: DemoQuote[];
+  draftEmails: DemoDraftEmail[];
   notifications: DemoNotification[];
   settings: {
     labour_rate: number;
@@ -254,6 +265,7 @@ function createInitialState(): DemoState {
     jobs,
     invoices,
     quotes,
+    draftEmails: [],
     notifications: [
       {
         id: "notif-draft-sarah",
@@ -284,6 +296,11 @@ const globalStore = globalThis as typeof globalThis & {
 };
 
 const state = (globalStore.__debugDivaDemoState ??= createInitialState());
+
+function draftEmailState() {
+  state.draftEmails ??= [];
+  return state.draftEmails;
+}
 
 export const demoStore = {
   jobs: {
@@ -392,6 +409,46 @@ export const demoStore = {
       const index = state.quotes.findIndex((item) => item.id === id);
       if (index === -1) return false;
       state.quotes.splice(index, 1);
+      return true;
+    },
+  },
+  draftEmails: {
+    all() {
+      return draftEmailState();
+    },
+    get(id: string) {
+      return draftEmailState().find((email) => email.id === id) ?? null;
+    },
+    create(input: {
+      client_name: string;
+      client_email?: string;
+      subject: string;
+      body: string;
+    }) {
+      const now = new Date().toISOString();
+      const email: DemoDraftEmail = {
+        id: crypto.randomUUID(),
+        client_name: input.client_name,
+        client_email: input.client_email,
+        subject: input.subject,
+        body: input.body,
+        created_at: now,
+        updated_at: now,
+      };
+      draftEmailState().unshift(email);
+      return email;
+    },
+    update(id: string, patch: Partial<DemoDraftEmail>) {
+      const email = draftEmailState().find((item) => item.id === id);
+      if (!email) return null;
+      Object.assign(email, patch, { updated_at: new Date().toISOString() });
+      return email;
+    },
+    delete(id: string) {
+      const emails = draftEmailState();
+      const index = emails.findIndex((item) => item.id === id);
+      if (index === -1) return false;
+      emails.splice(index, 1);
       return true;
     },
   },
