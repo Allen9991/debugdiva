@@ -1,11 +1,16 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { ExtractionPreview } from "@/components/brain/ExtractionPreview";
 import { ForgivenessMode } from "@/components/brain/ForgivenessMode";
 import type { ExtractVoiceResponse } from "@/lib/claude/schemas";
 
 const CONFIDENCE_THRESHOLD = 0.7;
+// [PENDING: real job creation] Until the capture flow creates a job in
+// the DB, the approve button hands off to the demo job seeded in
+// /api/output/invoice/draft (Sarah at 25 Queen Street).
+const DEMO_JOB_ID = "33333333-3333-3333-3333-333333333333";
 
 // Demo extraction so the page renders end-to-end before Freddie's
 // VoiceRecorder is wired up. Defaults to a *low-confidence* result so
@@ -34,6 +39,7 @@ const MOCK_EXTRACTION: ExtractVoiceResponse = {
 type Stage = "review" | "approved";
 
 export default function CapturePage() {
+  const router = useRouter();
   const [extraction, setExtraction] =
     useState<ExtractVoiceResponse>(MOCK_EXTRACTION);
   const [originalTranscript, setOriginalTranscript] = useState<string>(
@@ -50,7 +56,9 @@ export default function CapturePage() {
 
   const handleApprove = () => {
     setStage("approved");
-    // [PENDING: hand off to Ilan's invoice draft flow with `extraction`]
+    // Hand off to Ilan's invoice draft flow. /invoices/[id] fetches a fresh
+    // draft via POST /api/output/invoice/draft and renders InvoiceDraftView.
+    router.push(`/invoices/${DEMO_JOB_ID}`);
   };
 
   const handleEdit = () => {

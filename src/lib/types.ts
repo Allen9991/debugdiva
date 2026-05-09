@@ -59,6 +59,7 @@ export type Quote = {
   gst_enabled: boolean;
   expires_at: string;
   sent_at?: string;
+  created_at: string;
 };
 
 export type Message = {

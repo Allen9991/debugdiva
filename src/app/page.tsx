@@ -1,3 +1,5 @@
+import { GhostSummary } from "@/components/brain/GhostSummary";
+
 type Priority = "high" | "medium" | "low";
 
 type PendingAction = {
@@ -126,6 +128,8 @@ export default async function HomePage() {
         </aside>
 
         <section className="flex-1 space-y-6">
+          <GhostSummary />
+
           <header className="rounded-3xl bg-gradient-to-br from-slate-950 to-blue-950 p-6 text-white shadow-sm md:p-8">
             <div className="flex flex-col gap-6 md:flex-row md:items-center md:justify-between">
               <div>
