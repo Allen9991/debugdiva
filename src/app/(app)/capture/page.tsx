@@ -2,40 +2,55 @@
 
 import { useState } from "react";
 import { ExtractionPreview } from "@/components/brain/ExtractionPreview";
-import { ClarifyingQuestion } from "@/components/brain/ClarifyingQuestion";
+import { ForgivenessMode } from "@/components/brain/ForgivenessMode";
 import type { ExtractVoiceResponse } from "@/lib/claude/schemas";
 
+const CONFIDENCE_THRESHOLD = 0.7;
+
 // Demo extraction so the page renders end-to-end before Freddie's
-// VoiceRecorder is wired up. Once capture works, this will be replaced
-// by the real /api/brain/extract response keyed off capture_id.
+// VoiceRecorder is wired up. Defaults to a *low-confidence* result so
+// the Forgiveness Mode flow is the first thing on screen — that's the
+// feature being showcased. Answering the clarifying question swaps in
+// a high-confidence extraction and reveals the standard preview.
 const MOCK_EXTRACTION: ExtractVoiceResponse = {
   client_name: "Sarah",
-  job_location: "25 Queen Street",
+  job_location: null,
   labour_hours: 2,
   materials: [
-    { name: "sealant", cost: 15, quantity: 1 },
-    { name: "pipe fitting", cost: 25, quantity: 1 },
-    { name: "replacement valve", cost: 35, quantity: 1 },
+    { name: "miscellaneous parts/materials", cost: null, quantity: null },
   ],
-  job_description: "Leak repair, tested and complete.",
+  job_description: "Leak repair (type unspecified)",
   total_estimate: null,
-  missing_fields: ["labour_rate"],
-  clarifying_question:
-    "What's your labour rate per hour so I can work out the total for the invoice?",
-  confidence: 0.82,
+  missing_fields: [
+    "job_location",
+    "materials.cost",
+    "materials.quantity",
+    "labour_rate",
+  ],
+  clarifying_question: "What's Sarah's address or suburb?",
+  confidence: 0.45,
 };
+
+type Stage = "review" | "approved";
 
 export default function CapturePage() {
   const [extraction, setExtraction] =
     useState<ExtractVoiceResponse>(MOCK_EXTRACTION);
-  const [clarifyingDismissed, setClarifyingDismissed] = useState(false);
+  const [originalTranscript, setOriginalTranscript] = useState<string>(
+    "Finished leak repair for Sarah at 25 Queen Street. Two hours labour. Used sealant, pipe fitting, and a replacement valve. Materials cost around $75. Job tested and complete.",
+  );
+  const [captureId, setCaptureId] = useState<string | null>(null);
+  const [stage, setStage] = useState<Stage>("review");
+  const [forceProceed, setForceProceed] = useState(false);
   const [isReExtracting, setIsReExtracting] = useState(false);
-  const [stage, setStage] = useState<"idle" | "review" | "approved">("review");
+  const [justBoosted, setJustBoosted] = useState(false);
+
+  const lowConfidence = extraction.confidence < CONFIDENCE_THRESHOLD;
+  const showForgiveness = stage === "review" && lowConfidence && !forceProceed;
 
   const handleApprove = () => {
     setStage("approved");
-    // [PENDING: hand off to Ilan's invoice draft flow]
-    // POST /api/output/invoice/draft with extraction
+    // [PENDING: hand off to Ilan's invoice draft flow with `extraction`]
   };
 
   const handleEdit = () => {
@@ -43,21 +58,57 @@ export default function CapturePage() {
     console.log("edit details", extraction);
   };
 
-  const handleClarify = async (answer: string) => {
+  const handleSkipForgiveness = () => {
+    setForceProceed(true);
+  };
+
+  // Re-extract by appending the user's answer to the original transcript
+  // and POSTing /api/brain/extract again. Falls back to a local patch when
+  // there is no captureId (mock-data flow).
+  const handleAnswerQuestion = async (answer: string) => {
     setIsReExtracting(true);
+    setJustBoosted(false);
+
+    const augmentedTranscript =
+      `${originalTranscript.trim()}\n\nAdditional info: ${answer.trim()}`.trim();
+
     try {
-      // [PENDING: real re-extract — append answer to capture's raw_text and
-      // re-POST /api/brain/extract. For now, just patch the missing field.]
-      await new Promise((r) => setTimeout(r, 600));
-      setExtraction((prev) => ({
-        ...prev,
-        missing_fields: prev.missing_fields.filter(
-          (f) => f !== "labour_rate",
-        ),
-        clarifying_question: null,
-        confidence: Math.min(1, prev.confidence + 0.1),
-      }));
-      console.log("clarifying answer:", answer);
+      if (!captureId) {
+        // Mock flow — Freddie hasn't wired a real capture_id yet.
+        await new Promise((r) => setTimeout(r, 500));
+        const next: ExtractVoiceResponse = {
+          ...extraction,
+          missing_fields: [],
+          clarifying_question: null,
+          confidence: Math.min(1, extraction.confidence + 0.25),
+        };
+        setExtraction(next);
+        setOriginalTranscript(augmentedTranscript);
+        if (next.confidence >= CONFIDENCE_THRESHOLD) setJustBoosted(true);
+        return;
+      }
+
+      // [PENDING: real re-extract — when capture_id is wired up, the right
+      // pattern is to update the captures.raw_text on the row and re-POST.
+      // For now we just call /api/brain/extract again on the same id,
+      // which will hit the dev cache. Replace with a row-update once the
+      // shell zone exposes a way to mutate captures.]
+      const res = await fetch("/api/brain/extract", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ capture_id: captureId }),
+      });
+      if (!res.ok) throw new Error(`extract failed (${res.status})`);
+      const data = (await res.json()) as {
+        extracted: ExtractVoiceResponse;
+      };
+      setExtraction(data.extracted);
+      setOriginalTranscript(augmentedTranscript);
+      if (data.extracted.confidence >= CONFIDENCE_THRESHOLD) {
+        setJustBoosted(true);
+      }
+    } catch (err) {
+      console.error("[capture] re-extract failed:", err);
     } finally {
       setIsReExtracting(false);
     }
@@ -85,12 +136,35 @@ export default function CapturePage() {
             [PENDING: Freddie&rsquo;s VoiceRecorder component drops in here]
           </p>
           <p className="text-xs text-slate-400 mt-2">
-            For now, the extraction below uses mock data so the review flow
-            renders.
+            Once wired, call <code>setCaptureId(id)</code> after extraction
+            completes so the re-extract flow can hit the real endpoint.
           </p>
         </section>
 
-        {stage === "review" && (
+        {/* Confidence boost confirmation — green flash after the user answers */}
+        {stage === "review" && justBoosted && (
+          <div
+            role="status"
+            className="rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 flex items-center gap-2"
+          >
+            <span aria-hidden>✅</span>
+            <p className="text-sm text-emerald-900">
+              Got it — confidence is up to{" "}
+              {Math.round(extraction.confidence * 100)}%. Have a look below.
+            </p>
+          </div>
+        )}
+
+        {showForgiveness && (
+          <ForgivenessMode
+            extraction={extraction}
+            isReExtracting={isReExtracting}
+            onAnswerQuestion={handleAnswerQuestion}
+            onSkip={handleSkipForgiveness}
+          />
+        )}
+
+        {stage === "review" && !showForgiveness && (
           <ExtractionPreview
             data={extraction}
             onApprove={handleApprove}
@@ -109,17 +183,6 @@ export default function CapturePage() {
             </p>
           </div>
         )}
-
-        {stage === "review" &&
-          extraction.clarifying_question &&
-          !clarifyingDismissed && (
-            <ClarifyingQuestion
-              question={extraction.clarifying_question}
-              isSubmitting={isReExtracting}
-              onSubmit={handleClarify}
-              onSkip={() => setClarifyingDismissed(true)}
-            />
-          )}
       </div>
     </main>
   );
