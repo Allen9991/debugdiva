@@ -45,7 +45,7 @@ export async function PATCH(request: Request, context: RouteContext) {
 
   const updated = demoStore.invoices.update(id, {
     status,
-    sent_at: status === "sent" ? new Date().toISOString() : invoice.sent_at,
+    sent_at: status === "sent" ? new Date().toISOString() : status === "draft" ? null : invoice.sent_at,
   });
 
   return NextResponse.json({ invoice: invoiceResponse(updated!) });

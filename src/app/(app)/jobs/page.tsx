@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { headers } from "next/headers";
 import { Eyebrow, Pill } from "@/components/ui/primitives";
+import { DeleteRecordButton } from "@/components/ui/DeleteRecordButton";
 
 type JobStatus =
   | "new"
@@ -19,6 +20,7 @@ type Job = {
   status: JobStatus;
   labour_hours: number;
   materials: { name: string; cost: number }[];
+  created_at: string;
 };
 
 async function getJobs(): Promise<Job[]> {
@@ -50,27 +52,25 @@ function statusTone(status: JobStatus): { bg: string; fg: string } {
 }
 
 function formatStatus(status: JobStatus) {
-  return status.replace("_", " ");
+  return status.replace("_", " ").replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
 function materialsTotal(materials: { name: string; cost: number }[]) {
   return materials.reduce((sum, item) => sum + item.cost, 0);
 }
 
-export default async function JobsPage() {
-  const jobs = await getJobs();
+export default async function JobsPage({ searchParams }: { searchParams?: Promise<{ search?: string }> }) {
+  const params = await searchParams;
+  const query = (params?.search ?? "").trim().toLowerCase();
+  const jobs = (await getJobs()).filter((job) => {
+    if (!query) return true;
+    return [job.client_name, job.location, job.description, job.status].join(" ").toLowerCase().includes(query);
+  });
 
   return (
     <main style={{ minHeight: "100vh", background: "var(--bg, #F8FAFC)", color: "var(--ink, #0B1220)" }}>
       <div style={{ maxWidth: 900, margin: "0 auto", padding: "28px 16px", display: "flex", flexDirection: "column", gap: 16 }}>
-        <header style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
-          <div>
-            <Eyebrow>Job memory</Eyebrow>
-            <h1 style={{ margin: "6px 0 0", fontSize: 26, fontWeight: 800, letterSpacing: -0.5 }}>Jobs</h1>
-            <p style={{ margin: "4px 0 0", fontSize: 13.5, color: "var(--muted, #64748B)", lineHeight: 1.5 }}>
-              Every job keeps the client, location, materials, captures, invoices, and follow-ups in one place.
-            </p>
-          </div>
+        <header style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 12, flexWrap: "wrap" }}>
           <Link
             href="/jobs/new"
             style={{ height: 38, padding: "0 16px", borderRadius: 10, background: "var(--accent, #FF5E4D)", color: "#fff", fontSize: 13, fontWeight: 700, textDecoration: "none", display: "inline-flex", alignItems: "center" }}
@@ -90,27 +90,28 @@ export default async function JobsPage() {
           <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
             {jobs.length === 0 && (
               <p style={{ fontSize: 13, color: "var(--muted, #64748B)" }}>
-                No jobs yet. Create one with the button above or capture a voice note from the Today page.
+                No jobs yet. Create one with the button above or capture a voice note from the Dashboard page.
               </p>
             )}
             {jobs.map((job) => {
               const tone = statusTone(job.status);
               return (
-                <Link
+                <div
                   key={job.id}
-                  href={"/jobs/" + job.id}
-                  style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, padding: "14px 16px", borderRadius: 14, border: "1px solid var(--border, #E2E8F0)", background: "var(--bg, #F8FAFC)", textDecoration: "none", color: "var(--ink, #0B1220)" }}
+                  style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, padding: "14px 16px", borderRadius: 14, border: "1px solid var(--border, #E2E8F0)", background: "var(--bg, #F8FAFC)", color: "var(--ink, #0B1220)" }}
                 >
-                  <div style={{ flex: 1, minWidth: 0 }}>
+                  <Link href={"/jobs/" + job.id} style={{ flex: 1, minWidth: 0, color: "inherit", textDecoration: "none" }}>
                     <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 6 }}>
                       <Pill style={{ background: tone.bg, color: tone.fg }}>{formatStatus(job.status)}</Pill>
                       <Pill tone="soft">{job.labour_hours}h labour</Pill>
+                      <Pill tone="soft">Created {new Date(job.created_at).toLocaleDateString("en-NZ")}</Pill>
                     </div>
                     <div style={{ fontSize: 15, fontWeight: 700 }}>{job.client_name}</div>
                     <div style={{ fontSize: 13, color: "var(--muted, #64748B)", marginTop: 2 }}>{job.location}</div>
                     <div style={{ fontSize: 13, color: "var(--muted, #64748B)", marginTop: 4, lineHeight: 1.45 }}>{job.description}</div>
-                  </div>
-                  <div style={{ flexShrink: 0, textAlign: "right", background: "#fff", border: "1px solid var(--border, #E2E8F0)", borderRadius: 12, padding: "10px 14px", minWidth: 110 }}>
+                  </Link>
+                  <div style={{ flexShrink: 0, textAlign: "right", display: "grid", gap: 8, justifyItems: "end" }}>
+                    <div style={{ background: "#fff", border: "1px solid var(--border, #E2E8F0)", borderRadius: 12, padding: "10px 14px", minWidth: 110 }}>
                     <div style={{ fontSize: 11, color: "var(--muted, #64748B)", fontWeight: 600 }}>Materials</div>
                     <div className="tabular-nums" style={{ fontSize: 20, fontWeight: 800, marginTop: 2 }}>
                       ${materialsTotal(job.materials).toFixed(2)}
@@ -118,8 +119,10 @@ export default async function JobsPage() {
                     <div style={{ fontSize: 11, color: "var(--muted, #64748B)", marginTop: 2 }}>
                       {job.materials.length} item{job.materials.length === 1 ? "" : "s"}
                     </div>
+                    </div>
+                    <DeleteRecordButton endpoint={"/api/jobs?id=" + job.id} label="Remove" confirmLabel="Delete job" />
                   </div>
-                </Link>
+                </div>
               );
             })}
           </div>

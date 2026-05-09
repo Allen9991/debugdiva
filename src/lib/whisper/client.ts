@@ -65,7 +65,7 @@ export function createWhisperClient() {
       if (!response.ok) {
         const errorText = await response.text();
         throw new Error(
-          `Whisper transcription failed (${response.status}): ${errorText}`,
+          `Ghostly transcription failed (${response.status}): ${errorText}`,
         );
       }
 

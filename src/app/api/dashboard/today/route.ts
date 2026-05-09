@@ -86,7 +86,7 @@ export async function GET() {
     stats: {
       jobs_today: jobsToday,
       unpaid_invoices: allInvoices.filter(
-        (i) => i.status === "draft" || i.status === "sent",
+        (i) => i.status === "draft",
       ).length,
       quotes_pending: allQuotes.filter(
         (q) => q.status === "sent" || q.status === "draft",

@@ -39,7 +39,6 @@ export function Mahi({
   const eyeShape = eyesOpen
     ? { rx: 3, ry: happy ? 3.6 : 3 }
     : { rx: 3, ry: 0.5 };
-  const showFedora = true || hardhat;
 
   const colorKey = color.replace("#", "");
   const gradId = `mahi-${visualMood}-${colorKey}`;
@@ -96,18 +95,6 @@ export function Mahi({
         />
 
         <ellipse cx="22" cy="18" rx="6" ry="3.5" fill="#fff" opacity="0.35" />
-
-        {showFedora && (
-          <g>
-            <ellipse cx="32" cy="18" rx="20" ry="3.8" fill="#171923" />
-            <path
-              d="M20 16 C21.5 7.5 26 4 32 4 C38 4 42.5 7.5 44 16 Z"
-              fill="#202636"
-            />
-            <path d="M21 14 H43 V18 H21 Z" fill={resolvedAccent} opacity="0.9" />
-            <ellipse cx="27" cy="10" rx="3.4" ry="1.4" fill="#fff" opacity="0.18" />
-          </g>
-        )}
 
         {happy && (
           <>

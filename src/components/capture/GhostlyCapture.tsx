@@ -14,6 +14,7 @@ import type { ExtractVoiceResponse } from "@/lib/claude/schemas";
 
 type Phase = "idle" | "recording" | "uploading" | "extracting" | "forgiveness" | "preview";
 type BusyAction = "demo" | "job" | "invoice" | "quote";
+type CaptureIntent = "job" | "invoice" | "quote" | "complete_existing_job" | "mark_existing_paid";
 
 type ExtractApiResponse = {
   status?: string;
@@ -26,6 +27,53 @@ type ExtractApiResponse = {
 const CONFIDENCE_THRESHOLD = 0.7;
 const WAVE_BARS = 40;
 
+const FIELD_LABELS: Record<string, string> = {
+  client_name: "Client Name",
+  job_location: "Job Location",
+  labour_hours: "Labour Hours",
+  "materials.cost": "Material Costs",
+  job_description: "Job Description",
+};
+
+type ExistingJob = {
+  id: string;
+  client_name: string;
+  location?: string | null;
+  description: string;
+  status: string;
+};
+
+function fieldLabel(field: string) {
+  return FIELD_LABELS[field] ?? field.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
+function questionForField(field: string) {
+  if (field === "client_name") return "Who is the client for this job?";
+  if (field === "job_location") return "What is the job location?";
+  if (field === "labour_hours") return "How many labour hours should I use?";
+  if (field === "materials.cost") return "What did the materials cost?";
+  return "What should I add for " + fieldLabel(field) + "?";
+}
+
+function cleanTypedAnswer(value: string, field: string) {
+  const trimmed = value.trim().replace(/\s+/g, " ");
+  const acronyms = new Set(["ucsa", "nz", "gst"]);
+  if (field === "client_name" || field === "job_location") {
+    return trimmed
+      .split(" ")
+      .map((word) => {
+        const stripped = word.replace(/[^a-z0-9]/gi, "").toLowerCase();
+        if (acronyms.has(stripped)) return word.toUpperCase();
+        return word.charAt(0).toUpperCase() + word.slice(1).toLowerCase();
+      })
+      .join(" ");
+  }
+  if (field === "job_description") {
+    return trimmed.charAt(0).toUpperCase() + trimmed.slice(1);
+  }
+  return trimmed;
+}
+
 function preferredMimeType() {
   if (typeof MediaRecorder === "undefined") return "audio/webm";
   const candidates = ["audio/webm;codecs=opus", "audio/webm", "audio/mp4"];
@@ -37,6 +85,47 @@ function formatTimer(ms: number) {
   const m = Math.floor(total / 60);
   const s = total % 60;
   return `${m}:${s.toString().padStart(2, "0")}`;
+}
+
+function normalizeMatch(value: string | null | undefined) {
+  return (value ?? "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+}
+
+function findExistingOpenJob(jobs: ExistingJob[], extracted: ExtractVoiceResponse) {
+  const client = normalizeMatch(extracted.client_name);
+  const location = normalizeMatch(extracted.job_location);
+  const description = normalizeMatch(extracted.job_description);
+
+  return jobs.find((job) => {
+    if (job.status === "completed" || job.status === "paid") return false;
+    const jobClient = normalizeMatch(job.client_name);
+    const jobLocation = normalizeMatch(job.location);
+    const jobDescription = normalizeMatch(job.description);
+    const clientMatches = client && (jobClient.includes(client) || client.includes(jobClient));
+    const locationMatches = location && (jobLocation.includes(location) || location.includes(jobLocation));
+    const descriptionMatches =
+      description &&
+      description
+        .split(" ")
+        .filter((word) => word.length > 3)
+        .some((word) => jobDescription.includes(word));
+    return Boolean(clientMatches && (locationMatches || descriptionMatches));
+  });
+}
+
+function deriveCaptureIntent(transcript: string): CaptureIntent {
+  const lower = transcript.toLowerCase();
+  if (/\b(paid|payment received|has paid|mark paid)\b/.test(lower)) return "mark_existing_paid";
+  if (/\b(complete|completed|finished|done|fixed|wrapped up)\b/.test(lower)) return "complete_existing_job";
+  if (/\b(invoic\w*|inv)\b/.test(lower)) return "invoice";
+  if (/\b(quote|estimate)\b/.test(lower)) return "quote";
+  return "job";
+}
+
+function intentStatus(intent: CaptureIntent): "completed" | "paid" | "new" {
+  if (intent === "mark_existing_paid") return "paid";
+  if (intent === "quote") return "new";
+  return "completed";
 }
 
 export function GhostlyCapture() {
@@ -105,9 +194,44 @@ export function GhostlyCapture() {
     }
   }
 
-  async function createJobRequest(status: "completed" | "new" = "completed") {
+  async function createJobRequest(status: "completed" | "new" | "paid" = "completed") {
     if (!extracted) {
       throw new Error("Capture is not ready yet.");
+    }
+    if (status === "completed" || status === "paid") {
+      const jobsRes = await fetch("/api/jobs", { cache: "no-store" });
+      const jobsPayload = (await jobsRes.json()) as { jobs?: ExistingJob[] };
+      const existingJob = findExistingOpenJob(jobsPayload.jobs ?? [], extracted);
+      if (existingJob) {
+        const ok = window.confirm(
+          "Ghostly found an existing job for " +
+            existingJob.client_name +
+            ". Update that job to " +
+            status.replace("_", " ") +
+            " instead of creating a new job?",
+        );
+        if (!ok) {
+          throw new Error("Update cancelled.");
+        }
+        const updateRes = await fetch("/api/jobs/" + existingJob.id, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            status,
+            location: extracted.job_location ?? existingJob.location ?? "Address TBC",
+            description: extracted.job_description ?? existingJob.description,
+            labour_hours: extracted.labour_hours ?? 0,
+            materials: extracted.materials
+              .filter((material) => material.cost != null)
+              .map((material) => ({ name: material.name, cost: material.cost ?? 0 })),
+          }),
+        });
+        const updatePayload = (await updateRes.json()) as { job?: { id: string }; error?: string };
+        if (!updateRes.ok || !updatePayload.job?.id) {
+          throw new Error(updatePayload.error ?? "Could not update existing job.");
+        }
+        return updatePayload.job;
+      }
     }
     const res = await fetch("/api/jobs", {
         method: "POST",
@@ -134,7 +258,7 @@ export function GhostlyCapture() {
     setBusyAction("job");
     setError(null);
     try {
-      const job = await createJobRequest("completed");
+      const job = await createJobRequest(intentStatus(deriveCaptureIntent(transcript)));
       window.location.href = "/jobs/" + job.id;
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not create job.");
@@ -193,6 +317,44 @@ export function GhostlyCapture() {
     } finally {
       setBusyAction(null);
     }
+  }
+
+  function submitForgivenessAnswer() {
+    if (!extracted || !forgivenessAnswer.trim()) return;
+    const field = extracted.missing_fields[0];
+    const answer = cleanTypedAnswer(forgivenessAnswer, field);
+    const patch: Partial<ExtractVoiceResponse> = {};
+
+    if (field === "client_name") patch.client_name = answer;
+    if (field === "job_location") patch.job_location = answer;
+    if (field === "labour_hours") {
+      const hours = Number(answer.match(/\d+(?:\.\d+)?/)?.[0] ?? NaN);
+      if (Number.isFinite(hours)) patch.labour_hours = hours;
+    }
+    if (field === "job_description") patch.job_description = answer;
+    if (field === "materials.cost") {
+      const cost = Number(answer.match(/\d+(?:\.\d+)?/)?.[0] ?? NaN);
+      if (Number.isFinite(cost)) {
+        patch.materials = extracted.materials.length > 0
+          ? extracted.materials.map((material, index) => ({
+              ...material,
+              cost: material.cost ?? (index === 0 ? cost : null),
+            }))
+          : [{ name: "Materials", cost, quantity: null }];
+      }
+    }
+
+    const remaining = extracted.missing_fields.filter((item) => item !== field);
+    const next = {
+      ...extracted,
+      ...patch,
+      missing_fields: remaining,
+      clarifying_question: remaining[0] ? questionForField(remaining[0]) : null,
+      confidence: remaining.length === 0 ? Math.max(extracted.confidence, 0.86) : extracted.confidence,
+    };
+    setExtracted(next);
+    setForgivenessAnswer("");
+    if (remaining.length === 0) setPhase("preview");
   }
 
   async function startRecording() {
@@ -326,7 +488,7 @@ export function GhostlyCapture() {
           extracted={extracted}
           answer={forgivenessAnswer}
           onAnswerChange={setForgivenessAnswer}
-          onSubmit={() => setPhase("preview")}
+          onSubmit={submitForgivenessAnswer}
           onSkip={() => setPhase("preview")}
         />
       )}
@@ -596,7 +758,7 @@ function ProcessingView({
       >
         <Mahi size={72} mood={isExtracting ? "thinking" : "happy"} />
         <div style={{ textAlign: "center" }}>
-          <Eyebrow>{isExtracting ? "Brain Zone" : "Whisper"}</Eyebrow>
+          <Eyebrow>{isExtracting ? "Ghostly is reading the note" : "Talking to Ghostly"}</Eyebrow>
           <h2
             style={{
               margin: "6px 0 0",
@@ -607,7 +769,7 @@ function ProcessingView({
           >
             {isExtracting
               ? "Reading your note…"
-              : "Sending to Whisper…"}
+              : "Sending your voice note to Ghostly..."}
           </h2>
         </div>
 
@@ -788,7 +950,7 @@ function ForgivenessView({
                   fontWeight: 600,
                 }}
               >
-                ⚠️ {field}
+                {fieldLabel(field)}
               </span>
             ))}
           </div>
@@ -883,6 +1045,22 @@ function PreviewView({
   onReset: () => void;
 }) {
   const confidencePct = Math.round(extracted.confidence * 100);
+  const intent = deriveCaptureIntent(transcript);
+  const showJobAction = intent === "job" || intent === "complete_existing_job" || intent === "mark_existing_paid";
+  const showInvoiceAction = intent === "invoice" || intent === "job";
+  const showQuoteAction = intent === "quote" || intent === "job";
+  const jobActionLabel =
+    intent === "mark_existing_paid"
+      ? "Mark paid"
+      : intent === "complete_existing_job"
+        ? "Update job"
+        : "Create job";
+  const jobBusyLabel =
+    intent === "mark_existing_paid"
+      ? "Updating..."
+      : intent === "complete_existing_job"
+        ? "Updating..."
+        : "Creating...";
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
       <div
@@ -1008,65 +1186,71 @@ function PreviewView({
         >
           Record another
         </button>
-        <button
-          type="button"
-          onClick={onCreateJob}
-          disabled={busyAction !== null}
-          style={{
-            flex: 1,
-            height: 52,
-            borderRadius: 14,
-            border: "1px solid var(--border-strong)",
-            background: "#fff",
-            color: "var(--ink)",
-            fontSize: 15,
-            fontWeight: 600,
-            cursor: busyAction ? "not-allowed" : "pointer",
-            opacity: busyAction ? 0.7 : 1,
-          }}
-        >
-          {busyAction === "job" ? "Creating..." : "Create job"}
-        </button>
-        <button
-          type="button"
-          onClick={onCreateInvoice}
-          disabled={busyAction !== null}
-          style={{
-            flex: 1,
-            height: 52,
-            borderRadius: 14,
-            border: "none",
-            background: "var(--accent)",
-            color: "#fff",
-            fontSize: 15,
-            fontWeight: 600,
-            cursor: busyAction ? "not-allowed" : "pointer",
-            opacity: busyAction ? 0.7 : 1,
-            boxShadow: "var(--shadow-elevated)",
-          }}
-        >
-          {busyAction === "invoice" ? "Drafting..." : "Create invoice"}
-        </button>
-        <button
-          type="button"
-          onClick={onCreateQuote}
-          disabled={busyAction !== null}
-          style={{
-            flex: 1,
-            height: 52,
-            borderRadius: 14,
-            border: "none",
-            background: "#1A5155",
-            color: "#fff",
-            fontSize: 15,
-            fontWeight: 600,
-            cursor: busyAction ? "not-allowed" : "pointer",
-            opacity: busyAction ? 0.7 : 1,
-            boxShadow: "var(--shadow-elevated)",
-          }}
-        >
-          {busyAction === "quote" ? "Drafting..." : "Create quote"}
-        </button>
+        {showJobAction && (
+          <button
+            type="button"
+            onClick={onCreateJob}
+            disabled={busyAction !== null}
+            style={{
+              flex: 1,
+              height: 52,
+              borderRadius: 14,
+              border: "1px solid var(--border-strong)",
+              background: "#fff",
+              color: "var(--ink)",
+              fontSize: 15,
+              fontWeight: 600,
+              cursor: busyAction ? "not-allowed" : "pointer",
+              opacity: busyAction ? 0.7 : 1,
+            }}
+          >
+            {busyAction === "job" ? jobBusyLabel : jobActionLabel}
+          </button>
+        )}
+        {showInvoiceAction && (
+          <button
+            type="button"
+            onClick={onCreateInvoice}
+            disabled={busyAction !== null}
+            style={{
+              flex: 1,
+              height: 52,
+              borderRadius: 14,
+              border: "none",
+              background: "var(--accent)",
+              color: "#fff",
+              fontSize: 15,
+              fontWeight: 600,
+              cursor: busyAction ? "not-allowed" : "pointer",
+              opacity: busyAction ? 0.7 : 1,
+              boxShadow: "var(--shadow-elevated)",
+            }}
+          >
+            {busyAction === "invoice" ? "Drafting..." : "Create invoice"}
+          </button>
+        )}
+        {showQuoteAction && (
+          <button
+            type="button"
+            onClick={onCreateQuote}
+            disabled={busyAction !== null}
+            style={{
+              flex: 1,
+              height: 52,
+              borderRadius: 14,
+              border: "none",
+              background: "#1A5155",
+              color: "#fff",
+              fontSize: 15,
+              fontWeight: 600,
+              cursor: busyAction ? "not-allowed" : "pointer",
+              opacity: busyAction ? 0.7 : 1,
+              boxShadow: "var(--shadow-elevated)",
+            }}
+          >
+            {busyAction === "quote" ? "Drafting..." : "Create quote"}
+          </button>
+        )}
         <Link
           href="/jobs"
           style={{

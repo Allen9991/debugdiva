@@ -159,74 +159,7 @@ export function DesktopToday({
   const cashflowWeek = outstandingTotal + cashflowToday;
 
   return (
-      <main style={{ overflow: "auto", position: "relative", minHeight: "100vh", background: "var(--bg-desktop)", color: "var(--ink)" }}>
-        {/* TOP BAR */}
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            padding: "20px 28px",
-            borderBottom: "1px solid var(--border)",
-            background: "rgba(244,239,232,0.85)",
-            backdropFilter: "blur(8px)",
-            position: "sticky",
-            top: 0,
-            zIndex: 5,
-          }}
-        >
-          <div>
-            <div
-              style={{
-                fontSize: 11,
-                fontWeight: 700,
-                letterSpacing: 1.4,
-                color: "var(--muted)",
-                textTransform: "uppercase",
-              }}
-            >
-              {dateLabel}
-            </div>
-            <div style={{ fontSize: 22, fontWeight: 800, letterSpacing: -0.5, marginTop: 1 }}>
-              Today
-            </div>
-          </div>
-
-          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <SearchBox />
-            <IconBtn label="?">?</IconBtn>
-            <IconBtn label="Notifications">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
-                <path
-                  d="M5 18l1.8-2V11a5.2 5.2 0 0110.4 0v5l1.8 2v1H5v-1z"
-                  stroke="currentColor"
-                  strokeWidth="1.8"
-                  strokeLinejoin="round"
-                />
-                <path d="M10 21h4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-              </svg>
-            </IconBtn>
-            <Link
-              href="/capture"
-              style={{
-                height: 36,
-                padding: "0 14px",
-                borderRadius: 10,
-                background: "var(--ink)",
-                color: "#fff",
-                fontSize: 13,
-                fontWeight: 700,
-                display: "inline-flex",
-                alignItems: "center",
-                gap: 6,
-                textDecoration: "none",
-                boxShadow: "0 2px 8px rgba(11,18,32,0.18)",
-              }}
-            >
-              + New job
-            </Link>
-          </div>
-        </div>
+      <main style={{ overflowX: "hidden", position: "relative", minHeight: "100vh", width: "100%", background: "var(--bg-desktop)", color: "var(--ink)" }}>
 
         {/* HERO */}
         <section style={{ padding: "24px 28px 0" }}>
@@ -267,7 +200,13 @@ export function DesktopToday({
               }}
             />
             <div style={{ position: "absolute", right: 30, top: 16 }}>
-              <Mahi size={140} mood="cheer" accent="var(--mahi-yellow)" hardhat />
+              <Mahi
+                size={140}
+                mood="cheer"
+                accent="var(--mahi-yellow)"
+                hardhat
+                style={{ animation: "ghostBob 4.2s ease-in-out infinite" }}
+              />
             </div>
 
             <div style={{ position: "relative", maxWidth: "60%" }}>
@@ -280,7 +219,7 @@ export function DesktopToday({
                   textTransform: "uppercase",
                 }}
               >
-                Kia ora, Mike
+                {dateLabel}
               </div>
               <div
                 style={{
@@ -291,8 +230,8 @@ export function DesktopToday({
                   marginTop: 6,
                 }}
               >
-                Mōrena. {pendingActions.length} thing
-                {pendingActions.length === 1 ? "" : "s"} to wrap up before tomorrow.
+                Dashboard. {pendingActions.length} thing
+                {pendingActions.length === 1 ? "" : "s"} need attention.
               </div>
               <div style={{ marginTop: 14, display: "flex", gap: 10 }}>
                 <Link
@@ -393,12 +332,13 @@ export function DesktopToday({
           style={{
             padding: "20px 28px 28px",
             display: "grid",
-            gridTemplateColumns: "1.4fr 1fr",
+            gridTemplateColumns: "minmax(0, 1fr) minmax(260px, 320px)",
             gap: 18,
+            alignItems: "start",
           }}
         >
           {/* LEFT */}
-          <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: 18, minWidth: 0 }}>
             {/* Ghostly summary */}
             <div
               style={{
@@ -421,9 +361,6 @@ export function DesktopToday({
                   }}
                 >
                   <MahiTag />
-                  <span style={{ fontSize: 11, color: "var(--muted)", fontWeight: 600 }}>
-                    {brainSummary ? "Live" : "Heuristic"}
-                  </span>
                 </div>
                 <p
                   style={{
@@ -436,13 +373,6 @@ export function DesktopToday({
                   {brainSummary ??
                     `${pendingActions.length} action${pendingActions.length === 1 ? "" : "s"} on the board today. ${stats.unpaid_invoices} invoice${stats.unpaid_invoices === 1 ? "" : "s"} still need following up, ${stats.receipts_unlinked} loose receipt${stats.receipts_unlinked === 1 ? "" : "s"} need attaching.`}
                 </p>
-                <div style={{ marginTop: 10, display: "flex", gap: 6, flexWrap: "wrap" }}>
-                  {topActions.map((a, i) => (
-                    <Chip key={i} href={a.job_id ? `/jobs/${a.job_id}` : "/capture"}>
-                      {shortActionLabel(a)}
-                    </Chip>
-                  ))}
-                </div>
               </div>
             </div>
 
@@ -497,102 +427,7 @@ export function DesktopToday({
           </div>
 
           {/* RIGHT */}
-          <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
-            {/* Voice capture widget */}
-            <Link
-              href="/capture"
-              style={{
-                padding: 18,
-                borderRadius: 16,
-                background: "var(--ink)",
-                color: "#fff",
-                position: "relative",
-                overflow: "hidden",
-                textDecoration: "none",
-                display: "block",
-              }}
-            >
-              <div
-                aria-hidden
-                style={{
-                  position: "absolute",
-                  top: -40,
-                  right: -30,
-                  width: 140,
-                  height: 140,
-                  borderRadius: "50%",
-                  background: "rgba(44,122,123,0.13)",
-                }}
-              />
-              <div
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 8,
-                  position: "relative",
-                }}
-              >
-                <span
-                  style={{
-                    width: 6,
-                    height: 6,
-                    borderRadius: "50%",
-                    background: "var(--accent)",
-                    boxShadow: "0 0 0 4px rgba(44,122,123,0.2)",
-                  }}
-                />
-                <span
-                  style={{
-                    fontSize: 11,
-                    fontWeight: 700,
-                    letterSpacing: 1.4,
-                    textTransform: "uppercase",
-                    opacity: 0.7,
-                  }}
-                >
-                  Voice capture
-                </span>
-              </div>
-              <div
-                style={{
-                  fontSize: 16,
-                  fontWeight: 600,
-                  marginTop: 6,
-                  lineHeight: 1.45,
-                  position: "relative",
-                }}
-              >
-                Between jobs? Talk Ghostly through one - it can draft the job, quote, or invoice.
-              </div>
-              <div
-                style={{
-                  marginTop: 14,
-                  height: 44,
-                  padding: "0 16px",
-                  borderRadius: 10,
-                  background: "var(--accent)",
-                  color: "#fff",
-                  fontSize: 13,
-                  fontWeight: 700,
-                  display: "inline-flex",
-                  alignItems: "center",
-                  gap: 8,
-                  boxShadow: "0 6px 18px rgba(44,122,123,0.4)",
-                  position: "relative",
-                }}
-              >
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
-                  <rect x="9" y="3" width="6" height="12" rx="3" fill="#fff" />
-                  <path
-                    d="M5 11a7 7 0 0014 0M12 18v3"
-                    stroke="#fff"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                  />
-                </svg>
-                Hold space to talk
-              </div>
-            </Link>
+          <div style={{ display: "flex", flexDirection: "column", gap: 18, minWidth: 0 }}>
 
             {/* Cashflow */}
             <div

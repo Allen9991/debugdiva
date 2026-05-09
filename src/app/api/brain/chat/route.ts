@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { demoStore } from "@/lib/demo-store";
 
 export const runtime = "nodejs";
 
@@ -7,6 +8,7 @@ type ChatJob = {
   client_name?: string | null;
   description: string;
   status: string;
+  location?: string | null;
 };
 
 type ChatInvoice = {
@@ -32,10 +34,51 @@ function buildFallback(
   message: string,
   context: { recent_jobs: ChatJob[]; pending_invoices: ChatInvoice[] },
 ): { response: string; suggested_actions: SuggestedAction[] } {
-  const lower = message.toLowerCase();
+  const lower = message.toLowerCase().replace(/\bisthere\b/g, "is there");
   const draft = context.pending_invoices.filter((i) => i.status === "draft");
   const overdue = context.pending_invoices.filter((i) => i.status === "sent");
   const completed = context.recent_jobs.filter((j) => j.status === "completed");
+  const wantsInvoice = /\b(invoic\w*|inv)\b/.test(lower);
+
+  if (wantsInvoice) {
+    const stopWords = new Set(["do", "we", "have", "an", "a", "the", "invoice", "invoices", "invoic", "invocie", "inv", "for", "is", "there", "any", "bro", "answer", "me", "or", "no"]);
+    const terms = lower
+      .replace(/[^a-z0-9\s]/g, " ")
+      .split(/\s+/)
+      .filter((term) => term.length > 1 && !stopWords.has(term) && !term.startsWith("invoic"));
+    const matchesInvoice = (invoice: ChatInvoice) =>
+      terms.length > 0 &&
+      terms.some((term) => (invoice.client_name ?? "").toLowerCase().includes(term));
+    const invoice = context.pending_invoices.find(matchesInvoice);
+    if (invoice) {
+      return {
+        response:
+          "Yes - I found an invoice for " +
+          (invoice.client_name ?? "that client") +
+          ". It is currently " +
+          invoice.status +
+          " for $" +
+          invoice.total.toFixed(2) +
+          ".",
+        suggested_actions: [{ label: "Open invoice", action: "view_invoice:" + invoice.id }],
+      };
+    }
+    if (terms.length > 0) {
+      const requested = terms.join(" ").toUpperCase();
+      const knownInvoiceNames = context.pending_invoices
+        .map((i) => i.client_name)
+        .filter((name): name is string => Boolean(name && name !== "Unknown client"));
+      return {
+        response:
+          "I can't find an invoice for " +
+          requested +
+          " in the current demo records. I found invoices for: " +
+          (knownInvoiceNames.join(", ") || "none") +
+          ".",
+        suggested_actions: [{ label: "Open invoices", action: "open:/invoices" }],
+      };
+    }
+  }
 
   if (/outstand|overdue|owe|chase|unpaid/.test(lower)) {
     if (overdue.length === 0 && draft.length === 0) {
@@ -81,7 +124,7 @@ function buildFallback(
     };
   }
 
-  if (/draft|invoice/.test(lower) && completed.length > 0) {
+  if (/draft/.test(lower) && completed.length > 0) {
     const job = completed[0];
     return {
       response:
@@ -112,14 +155,14 @@ function buildFallback(
   if (/hello|hi|kia ora|how/.test(lower)) {
     return {
       response:
-        "Kia ora - you've got " +
+        "Hi - you've got " +
         context.recent_jobs.length +
         " jobs and " +
         context.pending_invoices.length +
         " invoices on file. What's next on the list?",
       suggested_actions: [
         { label: "What's outstanding?", action: "open:/invoices" },
-        { label: "Open today", action: "open:/today" },
+        { label: "Open dashboard", action: "open:/today" },
       ],
     };
   }
@@ -148,8 +191,26 @@ export async function POST(request: Request) {
   const message = (body.message ?? "").trim();
   const conversation_id = body.conversation_id ?? "anon";
   const context = {
-    recent_jobs: body.context?.recent_jobs ?? [],
-    pending_invoices: body.context?.pending_invoices ?? [],
+    recent_jobs:
+      body.context?.recent_jobs?.length
+        ? body.context.recent_jobs
+        : demoStore.jobs.all().map((job) => ({
+            id: job.id,
+            client_name: job.client_name,
+            description: job.description,
+            status: job.status,
+            location: job.location,
+          })),
+    pending_invoices:
+      body.context?.pending_invoices?.length
+        ? body.context.pending_invoices
+        : demoStore.invoices.all().map((invoice) => ({
+            id: invoice.id,
+            job_id: invoice.job_id,
+            client_name: invoice.client_name,
+            total: invoice.total,
+            status: invoice.status,
+          })),
   };
 
   console.log(

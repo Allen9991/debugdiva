@@ -32,11 +32,15 @@ function money(v: number) {
   return new Intl.NumberFormat("en-NZ", { style: "currency", currency: "NZD" }).format(v);
 }
 
+function titleCase(value: string) {
+  return value.replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
 export default function InvoiceDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
   const [invoice, setInvoice] = useState<Invoice | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [busy, setBusy] = useState<null | "send" | "paid">(null);
+  const [busy, setBusy] = useState<null | "send" | "paid" | "undo">(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -62,7 +66,7 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
     };
   }, [id]);
 
-  async function patchStatus(next: Invoice["status"], action: "send" | "paid") {
+  async function patchStatus(next: Invoice["status"], action: "send" | "paid" | "undo") {
     if (!invoice) return;
     console.log("[InvoiceDetail] status change clicked ->", next);
     setBusy(action);
@@ -138,7 +142,7 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
 
           <div style={{ marginTop: 18, display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
             <span style={{ background: statusBadge.bg, color: statusBadge.fg, padding: "6px 12px", borderRadius: 999, fontSize: 12, fontWeight: 700, textTransform: "capitalize" }}>
-              {invoice.status}
+              {titleCase(invoice.status)}
             </span>
             <span style={{ fontSize: 12, color: "var(--muted, #64748B)" }}>
               Due {new Date(invoice.due_date).toLocaleDateString("en-NZ")}
@@ -205,6 +209,17 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
             >
               {busy === "paid" ? "Marking..." : "Mark as Paid"}
             </button>
+
+            {invoice.status !== "draft" && (
+              <button
+                type="button"
+                onClick={() => patchStatus("draft", "undo")}
+                disabled={busy !== null}
+                style={{ padding: "10px 16px", borderRadius: 10, background: "#fff", color: "var(--ink, #0B1220)", border: "1px solid var(--border, #E2E8F0)", fontSize: 13, fontWeight: 700, cursor: busy ? "not-allowed" : "pointer", opacity: busy ? 0.6 : 1 }}
+              >
+                {busy === "undo" ? "Undoing..." : "Undo to Draft"}
+              </button>
+            )}
           </div>
         </section>
       </div>

@@ -13,8 +13,16 @@ type Notification = {
   created_at: string;
 };
 
+type SearchItem = {
+  id: string;
+  href: string;
+  title: string;
+  meta: string;
+  keywords: string;
+};
+
 const TITLE_MAP: { match: RegExp; label: string }[] = [
-  { match: /^\/today/, label: "Today" },
+  { match: /^\/today/, label: "Dashboard" },
   { match: /^\/capture/, label: "Capture" },
   { match: /^\/jobs\/new/, label: "New job" },
   { match: /^\/jobs\/[^/]+/, label: "Job detail" },
@@ -31,7 +39,7 @@ function titleFor(pathname: string): string {
   for (const entry of TITLE_MAP) {
     if (entry.match.test(pathname)) return entry.label;
   }
-  if (pathname === "/" || pathname === "") return "Today";
+  if (pathname === "/" || pathname === "") return "Dashboard";
   return "Ghostly";
 }
 
@@ -50,6 +58,8 @@ export function TopBar() {
   const pathname = usePathname();
   const router = useRouter();
   const [search, setSearch] = useState("");
+  const [searchItems, setSearchItems] = useState<SearchItem[]>([]);
+  const [searchOpen, setSearchOpen] = useState(false);
   const [bellOpen, setBellOpen] = useState(false);
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(false);
@@ -63,6 +73,53 @@ export function TopBar() {
     if (bellOpen) document.addEventListener("mousedown", onDoc);
     return () => document.removeEventListener("mousedown", onDoc);
   }, [bellOpen]);
+
+  useEffect(() => {
+    let cancelled = false;
+    async function loadSearchItems() {
+      try {
+        const [jobsRes, invoicesRes, quotesRes] = await Promise.all([
+          fetch("/api/jobs", { cache: "no-store" }),
+          fetch("/api/invoices", { cache: "no-store" }),
+          fetch("/api/quotes", { cache: "no-store" }),
+        ]);
+        const [jobsJson, invoicesJson, quotesJson] = await Promise.all([
+          jobsRes.json().catch(() => ({ jobs: [] })),
+          invoicesRes.json().catch(() => ({ invoices: [] })),
+          quotesRes.json().catch(() => ({ quotes: [] })),
+        ]);
+        if (cancelled) return;
+        const jobs = (jobsJson.jobs ?? []).map((job: Record<string, unknown>) => ({
+          id: "job-" + String(job.id),
+          href: "/jobs/" + String(job.id),
+          title: String(job.client_name ?? "Unnamed job"),
+          meta: "Job - " + String(job.location ?? job.status ?? ""),
+          keywords: [job.client_name, job.location, job.description, job.status, "job", "jobs"].join(" "),
+        }));
+        const invoices = (invoicesJson.invoices ?? []).map((invoice: Record<string, unknown>) => ({
+          id: "invoice-" + String(invoice.id),
+          href: "/invoices/" + String(invoice.id),
+          title: String(invoice.client_name ?? "Unnamed invoice"),
+          meta: "Invoice - " + String(invoice.status ?? ""),
+          keywords: [invoice.client_name, invoice.location, invoice.description, invoice.status, "invoice", "invoices"].join(" "),
+        }));
+        const quotes = (quotesJson.quotes ?? []).map((quote: Record<string, unknown>) => ({
+          id: "quote-" + String(quote.id),
+          href: "/quotes",
+          title: String(quote.client_name ?? "Unnamed quote"),
+          meta: "Quote - " + String(quote.status ?? ""),
+          keywords: [quote.client_name, quote.location, quote.description, quote.status, "quote", "quotes"].join(" "),
+        }));
+        setSearchItems([...jobs, ...invoices, ...quotes]);
+      } catch (err) {
+        console.error("[TopBar] failed to load search index:", err);
+      }
+    }
+    loadSearchItems();
+    return () => {
+      cancelled = true;
+    };
+  }, [pathname]);
 
   useEffect(() => {
     if (!bellOpen) return;
@@ -86,6 +143,11 @@ export function TopBar() {
   }, [bellOpen]);
 
   const unreadCount = notifications.filter((n) => n.unread).length;
+  const searchMatches = search.trim()
+    ? searchItems
+        .filter((item) => item.keywords.toLowerCase().includes(search.trim().toLowerCase()))
+        .slice(0, 6)
+    : [];
 
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -93,9 +155,11 @@ export function TopBar() {
     console.log("[TopBar] search submitted:", q);
     if (!q) return;
     const lower = q.toLowerCase();
-    if (lower.startsWith("inv")) router.push("/invoices");
-    else if (lower.startsWith("quote")) router.push("/quotes");
-    else router.push("/jobs");
+    if (searchMatches[0]) router.push(searchMatches[0].href);
+    else if (lower.includes("invoice")) router.push("/invoices");
+    else if (lower.includes("quote")) router.push("/quotes");
+    else router.push("/jobs?search=" + encodeURIComponent(q));
+    setSearchOpen(false);
   };
 
   return (
@@ -125,7 +189,11 @@ export function TopBar() {
         <input
           type="search"
           value={search}
-          onChange={(e) => setSearch(e.target.value)}
+          onChange={(e) => {
+            setSearch(e.target.value);
+            setSearchOpen(true);
+          }}
+          onFocus={() => setSearchOpen(true)}
           placeholder="Search jobs, invoices, quotes..."
           aria-label="Search"
           style={{
@@ -140,6 +208,27 @@ export function TopBar() {
             outline: "none",
           }}
         />
+        {searchOpen && search.trim() && (
+          <div style={{ position: "absolute", top: 42, left: 0, right: 0, background: "var(--surface, #fff)", border: "1px solid var(--border, #E2E8F0)", borderRadius: 12, boxShadow: "0 14px 34px rgba(15,23,42,0.16)", padding: 6, zIndex: 70 }}>
+            {searchMatches.length === 0 && (
+              <div style={{ padding: "10px 12px", fontSize: 13, color: "var(--muted, #64748B)" }}>No matching jobs, invoices, or quotes.</div>
+            )}
+            {searchMatches.map((item) => (
+              <Link
+                key={item.id}
+                href={item.href}
+                onClick={() => {
+                  setSearch(item.title);
+                  setSearchOpen(false);
+                }}
+                style={{ display: "block", padding: "10px 12px", borderRadius: 9, textDecoration: "none", color: "var(--ink, #0B1220)" }}
+              >
+                <div style={{ fontSize: 13, fontWeight: 700 }}>{item.title}</div>
+                <div style={{ fontSize: 12, color: "var(--muted, #64748B)", marginTop: 2 }}>{item.meta}</div>
+              </Link>
+            ))}
+          </div>
+        )}
       </form>
 
       <div style={{ flex: 1 }} />

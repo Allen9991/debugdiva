@@ -67,7 +67,7 @@ function PageHeader({
         ...style,
         borderRadius: 24,
         background:
-          "linear-gradient(155deg, rgba(255,94,77,0.96) 0%, rgba(200,65,59,1) 100%)",
+          "linear-gradient(135deg, var(--accent) 0%, #1A5155 80%, var(--ink) 200%)",
         boxShadow: "var(--shadow-hero)",
         color: "#fff",
         position: "relative",

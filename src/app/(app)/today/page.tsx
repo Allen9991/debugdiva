@@ -168,10 +168,10 @@ export default async function TodayPage() {
 
           <section style={{ position: "relative", overflow: "hidden", borderRadius: "var(--radius-hero)", padding: "24px 22px 22px", background: "linear-gradient(160deg, var(--accent) 0%, #1A5155 125%)", boxShadow: "var(--shadow-hero)", color: "#fff" }}>
             <div style={{ position: "relative", maxWidth: "60%" }}>
-              <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: 1.4, textTransform: "uppercase", color: "rgba(255,255,255,0.78)" }}>Kia ora, Mike</div>
+              <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: 1.4, textTransform: "uppercase", color: "rgba(255,255,255,0.78)" }}>Dashboard</div>
               <h1 style={{ margin: "8px 0 6px", fontSize: 30, fontWeight: 800, letterSpacing: -0.7, lineHeight: 1.08 }}>Your admin is under control.</h1>
               <p style={{ margin: 0, fontSize: 13.5, fontWeight: 500, lineHeight: 1.45, color: "rgba(255,255,255,0.88)" }}>
-                {dashboard.pending_actions.length} thing{dashboard.pending_actions.length === 1 ? "" : "s"} need attention today.
+                {dashboard.pending_actions.length} thing{dashboard.pending_actions.length === 1 ? "" : "s"} need attention.
               </p>
             </div>
 

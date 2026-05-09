@@ -14,7 +14,7 @@ type NavItem = {
 const NAV: NavItem[] = [
   {
     id: "today",
-    label: "Today",
+    label: "Dashboard",
     href: "/today",
     icon: (
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
@@ -201,23 +201,6 @@ export function Sidebar() {
       </nav>
 
       <div style={{ flex: 1 }} />
-
-      <div
-        style={{
-          padding: 14,
-          borderRadius: 14,
-          background: "rgba(255,255,255,0.06)",
-          border: "1px solid rgba(255,255,255,0.08)",
-          display: "flex",
-          gap: 10,
-          alignItems: "center",
-        }}
-      >
-        <Mahi size={36} mood="happy" />
-        <div style={{ flex: 1, fontSize: 11.5, lineHeight: 1.4, opacity: 0.85 }}>
-          <b style={{ color: "#fff" }}>Ghostly</b> learned your van rate this week.
-        </div>
-      </div>
 
       <div style={{ padding: "12px 8px 0", display: "flex", alignItems: "center", gap: 10 }}>
         <div

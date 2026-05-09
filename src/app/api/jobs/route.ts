@@ -57,3 +57,12 @@ export async function POST(request: Request) {
   console.log("[POST /api/jobs] returning new job id:", job.id);
   return NextResponse.json(response, { status: 201 });
 }
+
+export async function DELETE(request: Request) {
+  const { searchParams } = new URL(request.url);
+  const id = searchParams.get("id");
+  if (!id) return NextResponse.json({ error: "id is required" }, { status: 400 });
+  const deleted = demoStore.jobs.delete(id);
+  if (!deleted) return NextResponse.json({ error: "Job not found" }, { status: 404 });
+  return NextResponse.json({ ok: true });
+}

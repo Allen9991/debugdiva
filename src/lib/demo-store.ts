@@ -325,6 +325,14 @@ export const demoStore = {
       Object.assign(job, patch, { updated_at: new Date().toISOString() });
       return job;
     },
+    delete(id: string) {
+      const index = state.jobs.findIndex((item) => item.id === id);
+      if (index === -1) return false;
+      state.jobs.splice(index, 1);
+      state.invoices = state.invoices.filter((invoice) => invoice.job_id !== id);
+      state.quotes = state.quotes.filter((quote) => quote.job_id !== id);
+      return true;
+    },
   },
   invoices: {
     all() {
@@ -352,6 +360,12 @@ export const demoStore = {
       Object.assign(invoice, patch);
       return invoice;
     },
+    delete(id: string) {
+      const index = state.invoices.findIndex((item) => item.id === id);
+      if (index === -1) return false;
+      state.invoices.splice(index, 1);
+      return true;
+    },
   },
   quotes: {
     all() {
@@ -373,6 +387,12 @@ export const demoStore = {
       if (!quote) return null;
       Object.assign(quote, patch);
       return quote;
+    },
+    delete(id: string) {
+      const index = state.quotes.findIndex((item) => item.id === id);
+      if (index === -1) return false;
+      state.quotes.splice(index, 1);
+      return true;
     },
   },
   notifications: {

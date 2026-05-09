@@ -49,3 +49,12 @@ export async function POST(request: Request) {
 
   return NextResponse.json({ quote: quoteResponse(quote), warnings: [] }, { status: 201 });
 }
+
+export async function DELETE(request: Request) {
+  const { searchParams } = new URL(request.url);
+  const id = searchParams.get("id");
+  if (!id) return NextResponse.json({ error: "id is required" }, { status: 400 });
+  const deleted = demoStore.quotes.delete(id);
+  if (!deleted) return NextResponse.json({ error: "Quote not found" }, { status: 404 });
+  return NextResponse.json({ ok: true });
+}

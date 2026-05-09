@@ -8,7 +8,7 @@ type Message = { who: "mahi" | "me"; text: string };
 const SEED: Message[] = [
   {
     who: "mahi",
-    text: "Kia ora, Mike. I can see your jobs, drafts, and receipts - what's first?",
+    text: "Hi Mike. I can see your jobs, drafts, and receipts - what's first?",
   },
 ];
 

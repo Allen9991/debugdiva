@@ -1,6 +1,7 @@
 import { headers } from "next/headers";
 import Link from "next/link";
-import { Eyebrow, Pill } from "@/components/ui/primitives";
+import { Pill } from "@/components/ui/primitives";
+import { DeleteRecordButton } from "@/components/ui/DeleteRecordButton";
 
 type InvoiceSummary = {
   id: string;
@@ -39,20 +40,16 @@ function money(value: number) {
   return new Intl.NumberFormat("en-NZ", { style: "currency", currency: "NZD" }).format(value);
 }
 
+function titleCase(value: string) {
+  return value.replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
 export default async function InvoicesPage() {
   const invoices = await getInvoices();
 
   return (
     <main style={{ minHeight: "100vh", background: "var(--bg, #F8FAFC)", color: "var(--ink, #0B1220)" }}>
       <div style={{ maxWidth: 900, margin: "0 auto", padding: "28px 16px", display: "flex", flexDirection: "column", gap: 16 }}>
-        <header>
-          <Eyebrow>Output zone</Eyebrow>
-          <h1 style={{ margin: "6px 0 0", fontSize: 26, fontWeight: 800, letterSpacing: -0.5 }}>Invoices</h1>
-          <p style={{ margin: "4px 0 0", fontSize: 13.5, color: "var(--muted, #64748B)", lineHeight: 1.5 }}>
-            Turn completed jobs into professional invoices.
-          </p>
-        </header>
-
         <section style={{ background: "#fff", borderRadius: 18, border: "1px solid var(--border, #E2E8F0)", padding: 20 }}>
           <div style={{ marginBottom: 16 }}>
             <div style={{ fontSize: 17, fontWeight: 800, letterSpacing: -0.3 }}>All invoices</div>
@@ -64,31 +61,34 @@ export default async function InvoicesPage() {
           <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
             {invoices.length === 0 && (
               <p style={{ fontSize: 13, color: "var(--muted, #64748B)" }}>
-                No invoices yet. Capture a completed job from the Today page or draft one from a job&rsquo;s detail page.
+                No invoices yet. Capture a completed job from the Dashboard page or draft one from a job&rsquo;s detail page.
               </p>
             )}
             {invoices.map((invoice) => {
               const tone = statusTone(invoice.status);
               return (
-                <Link
+                <div
                   key={invoice.id}
-                  href={"/invoices/" + invoice.id}
-                  style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, padding: "14px 16px", borderRadius: 14, border: "1px solid var(--border, #E2E8F0)", background: "var(--bg, #F8FAFC)", textDecoration: "none", color: "var(--ink, #0B1220)" }}
+                  style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, padding: "14px 16px", borderRadius: 14, border: "1px solid var(--border, #E2E8F0)", background: "var(--bg, #F8FAFC)", color: "var(--ink, #0B1220)" }}
                 >
-                  <div style={{ flex: 1, minWidth: 0 }}>
+                  <Link href={"/invoices/" + invoice.id} style={{ flex: 1, minWidth: 0, color: "inherit", textDecoration: "none" }}>
                     <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 6 }}>
-                      <Pill style={{ background: tone.bg, color: tone.fg }}>{invoice.status}</Pill>
+                      <Pill style={{ background: tone.bg, color: tone.fg }}>{titleCase(invoice.status)}</Pill>
                       <Pill tone="soft">Due {new Date(invoice.due_date).toLocaleDateString("en-NZ")}</Pill>
+                      <Pill tone="soft">Created {new Date(invoice.created_at).toLocaleDateString("en-NZ")}</Pill>
                     </div>
                     <div style={{ fontSize: 15, fontWeight: 700 }}>{invoice.client_name}</div>
                     <div style={{ fontSize: 13, color: "var(--muted, #64748B)", marginTop: 2 }}>{invoice.location}</div>
                     <div style={{ fontSize: 13, color: "var(--muted, #64748B)", marginTop: 4, lineHeight: 1.45 }}>{invoice.description}</div>
-                  </div>
-                  <div style={{ flexShrink: 0, textAlign: "right", background: "#fff", border: "1px solid var(--border, #E2E8F0)", borderRadius: 12, padding: "10px 14px", minWidth: 110 }}>
+                  </Link>
+                  <div style={{ flexShrink: 0, textAlign: "right", display: "grid", gap: 8, justifyItems: "end" }}>
+                    <div style={{ background: "#fff", border: "1px solid var(--border, #E2E8F0)", borderRadius: 12, padding: "10px 14px", minWidth: 110 }}>
                     <div style={{ fontSize: 11, color: "var(--muted, #64748B)", fontWeight: 600 }}>Total</div>
                     <div className="tabular-nums" style={{ fontSize: 20, fontWeight: 800, marginTop: 2 }}>{money(invoice.total)}</div>
+                    </div>
+                    <DeleteRecordButton endpoint={"/api/invoices?id=" + invoice.id} label="Remove" confirmLabel="Delete invoice" />
                   </div>
-                </Link>
+                </div>
               );
             })}
           </div>

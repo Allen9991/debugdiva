@@ -51,6 +51,20 @@ function money(value: number) {
   return new Intl.NumberFormat("en-NZ", { style: "currency", currency: "NZD" }).format(value);
 }
 
+function statusButtonStyle(active: boolean) {
+  return {
+    padding: "8px 14px",
+    fontSize: 12,
+    fontWeight: 700,
+    borderRadius: 10,
+    border: active ? "1px solid #10B981" : "1px solid var(--border, #E2E8F0)",
+    background: active ? "#D1FAE5" : "#fff",
+    color: active ? "#065F46" : "var(--ink, #0B1220)",
+    cursor: active ? "not-allowed" : "pointer",
+    opacity: active ? 0.65 : 1,
+  };
+}
+
 export default function JobDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
   const router = useRouter();
@@ -180,7 +194,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ id: string
               type="button"
               onClick={() => changeStatus("in_progress")}
               disabled={job.status === "in_progress"}
-              style={{ padding: "8px 14px", fontSize: 12, fontWeight: 700, borderRadius: 10, border: "1px solid var(--border, #E2E8F0)", background: "#fff", cursor: job.status === "in_progress" ? "not-allowed" : "pointer", opacity: job.status === "in_progress" ? 0.5 : 1, color: "var(--ink, #0B1220)" }}
+              style={statusButtonStyle(job.status === "in_progress")}
             >
               Mark In Progress
             </button>
@@ -188,7 +202,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ id: string
               type="button"
               onClick={() => changeStatus("completed")}
               disabled={job.status === "completed"}
-              style={{ padding: "8px 14px", fontSize: 12, fontWeight: 700, borderRadius: 10, border: "1px solid #10B981", background: "#D1FAE5", color: "#065F46", cursor: job.status === "completed" ? "not-allowed" : "pointer", opacity: job.status === "completed" ? 0.5 : 1 }}
+              style={statusButtonStyle(job.status === "completed")}
             >
               Mark Completed
             </button>
@@ -196,7 +210,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ id: string
               type="button"
               onClick={() => changeStatus("paid")}
               disabled={job.status === "paid"}
-              style={{ padding: "8px 14px", fontSize: 12, fontWeight: 700, borderRadius: 10, border: "1px solid var(--border, #E2E8F0)", background: "#fff", cursor: job.status === "paid" ? "not-allowed" : "pointer", opacity: job.status === "paid" ? 0.5 : 1, color: "var(--ink, #0B1220)" }}
+              style={statusButtonStyle(job.status === "paid")}
             >
               Mark Paid
             </button>
