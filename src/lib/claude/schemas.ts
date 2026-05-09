@@ -21,6 +21,28 @@ export const ExtractVoiceResponseSchema = z.object({
 export type ExtractVoiceResponse = z.infer<typeof ExtractVoiceResponseSchema>;
 export type Material = z.infer<typeof MaterialSchema>;
 
+// --- Receipt extraction ---
+
+export const ReceiptItemSchema = z.object({
+  name: z.string(),
+  quantity: z.number().nullable(),
+  cost: z.number().nullable(),
+});
+
+export const ExtractReceiptResponseSchema = z.object({
+  store_name: z.string().nullable(),
+  date: z.string().nullable(),
+  items: z.array(ReceiptItemSchema),
+  total: z.number().nullable(),
+  gst: z.number().nullable(),
+  payment_method: z.string().nullable(),
+  missing_fields: z.array(z.string()),
+  confidence: z.number().min(0).max(1),
+});
+
+export type ExtractReceiptResponse = z.infer<typeof ExtractReceiptResponseSchema>;
+export type ReceiptItem = z.infer<typeof ReceiptItemSchema>;
+
 // --- Chat ---
 
 export const ChatJobSchema = z.object({
@@ -75,6 +97,6 @@ export type SuggestedAction = z.infer<typeof SuggestedActionSchema>;
 
 export const structuredOutputSchemas = {
   voiceExtraction: ExtractVoiceResponseSchema,
-  receiptExtraction: null,
+  receiptExtraction: ExtractReceiptResponseSchema,
   chat: ChatResponseSchema,
 };

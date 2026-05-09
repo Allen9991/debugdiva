@@ -1,11 +1,15 @@
 import { NextResponse } from "next/server";
 import { promises as fs } from "node:fs";
 import path from "node:path";
+import { z } from "zod";
 import { claudeClient, CLAUDE_TIMEOUT_MS } from "@/lib/claude/client";
 import { buildExtractVoicePrompt } from "@/lib/claude/prompts/extract-voice";
+import { buildExtractReceiptPrompt } from "@/lib/claude/prompts/extract-receipt";
 import {
   ExtractVoiceResponseSchema,
+  ExtractReceiptResponseSchema,
   type ExtractVoiceResponse,
+  type ExtractReceiptResponse,
 } from "@/lib/claude/schemas";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
@@ -16,8 +20,6 @@ const BUSINESS_TYPE = "tradie";
 const CACHE_DIR = path.join(process.cwd(), "tests", "cache");
 
 // Schema source: supabase/migrations/0001_initial_schema.sql (Jayden).
-// captures(id, user_id, type, raw_text, image_url, audio_url, processed,
-//          job_id, created_at). `type` is 'voice' | 'receipt'.
 type CaptureRow = {
   id: string;
   type: "voice" | "receipt";
@@ -28,22 +30,24 @@ type CaptureRow = {
   processed: boolean;
 };
 
-async function readCache(captureId: string): Promise<ExtractVoiceResponse | null> {
+type Extracted = ExtractVoiceResponse | ExtractReceiptResponse;
+
+async function readCache<T>(
+  captureId: string,
+  schema: z.ZodSchema<T>,
+): Promise<T | null> {
   try {
     const file = path.join(CACHE_DIR, `${captureId}.json`);
     const raw = await fs.readFile(file, "utf8");
     const parsed = JSON.parse(raw);
-    const result = ExtractVoiceResponseSchema.safeParse(parsed);
+    const result = schema.safeParse(parsed);
     return result.success ? result.data : null;
   } catch {
     return null;
   }
 }
 
-async function writeCache(
-  captureId: string,
-  data: ExtractVoiceResponse,
-): Promise<void> {
+async function writeCache(captureId: string, data: Extracted): Promise<void> {
   try {
     await fs.mkdir(CACHE_DIR, { recursive: true });
     const file = path.join(CACHE_DIR, `${captureId}.json`);
@@ -68,6 +72,15 @@ function stripJsonFences(s: string): string {
   const trimmed = s.trim();
   const match = trimmed.match(/^```(?:json)?\s*([\s\S]*?)\s*```$/i);
   return match ? match[1].trim() : trimmed;
+}
+
+function isTimeoutError(err: unknown): boolean {
+  const e = err as { name?: string; message?: string };
+  return (
+    e?.name === "APIConnectionTimeoutError" ||
+    e?.name === "AbortError" ||
+    /timeout/i.test(e?.message ?? "")
+  );
 }
 
 export async function POST(request: Request) {
@@ -111,24 +124,96 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Capture not found" }, { status: 404 });
   }
 
-  if (capture.type === "receipt") {
-    return NextResponse.json(
-      { error: "Receipt extraction coming soon" },
-      { status: 501 },
-    );
+  const isDev = process.env.NODE_ENV === "development";
+
+  if (capture.type === "voice") {
+    if (!capture.raw_text || capture.raw_text.trim().length === 0) {
+      return NextResponse.json(
+        { error: "Capture has no transcript to extract from" },
+        { status: 400 },
+      );
+    }
+
+    if (isDev) {
+      const cached = await readCache(captureId, ExtractVoiceResponseSchema);
+      if (cached) {
+        return NextResponse.json({
+          extracted: cached,
+          capture_id: captureId,
+          processed_at: new Date().toISOString(),
+          cached: true,
+        });
+      }
+    }
+
+    const systemPrompt = buildExtractVoicePrompt(BUSINESS_TYPE);
+
+    let raw: string;
+    try {
+      const message = await claudeClient.messages.create(
+        {
+          model: CLAUDE_MODEL,
+          max_tokens: 1000,
+          system: systemPrompt,
+          messages: [{ role: "user", content: capture.raw_text }],
+        },
+        { timeout: CLAUDE_TIMEOUT_MS },
+      );
+      raw = extractTextFromClaude(message);
+    } catch (err) {
+      if (isTimeoutError(err)) {
+        return NextResponse.json(
+          { error: "AI extraction timed out" },
+          { status: 408 },
+        );
+      }
+      console.error("[extract] claude error (voice):", err);
+      return NextResponse.json(
+        { error: "AI extraction failed" },
+        { status: 502 },
+      );
+    }
+
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(stripJsonFences(raw));
+    } catch {
+      return NextResponse.json(
+        { error: "AI returned non-JSON output", raw },
+        { status: 422 },
+      );
+    }
+
+    const validation = ExtractVoiceResponseSchema.safeParse(parsed);
+    if (!validation.success) {
+      return NextResponse.json(
+        {
+          error: "AI output failed schema validation",
+          issues: validation.error.issues,
+        },
+        { status: 422 },
+      );
+    }
+
+    if (isDev) await writeCache(captureId, validation.data);
+
+    return NextResponse.json({
+      extracted: validation.data,
+      capture_id: captureId,
+      processed_at: new Date().toISOString(),
+    });
   }
 
-  if (!capture.raw_text || capture.raw_text.trim().length === 0) {
+  // capture.type === "receipt"
+  if (!capture.image_url) {
     return NextResponse.json(
-      { error: "Capture has no transcript to extract from" },
+      { error: "Receipt capture is missing image_url" },
       { status: 400 },
     );
   }
 
-  const isDev = process.env.NODE_ENV === "development";
-
   if (isDev) {
-    const cached = await readCache(captureId);
+    const cached = await readCache(captureId, ExtractReceiptResponseSchema);
     if (cached) {
       return NextResponse.json({
         extracted: cached,
@@ -139,33 +224,42 @@ export async function POST(request: Request) {
     }
   }
 
-  const systemPrompt = buildExtractVoicePrompt(BUSINESS_TYPE);
+  const systemPrompt = buildExtractReceiptPrompt();
 
   let raw: string;
   try {
     const message = await claudeClient.messages.create(
       {
         model: CLAUDE_MODEL,
-        max_tokens: 1000,
+        max_tokens: 1500,
         system: systemPrompt,
-        messages: [{ role: "user", content: capture.raw_text }],
+        messages: [
+          {
+            role: "user",
+            content: [
+              {
+                type: "image",
+                source: { type: "url", url: capture.image_url },
+              },
+              {
+                type: "text",
+                text: "Extract the receipt data per the instructions.",
+              },
+            ],
+          },
+        ],
       },
       { timeout: CLAUDE_TIMEOUT_MS },
     );
     raw = extractTextFromClaude(message);
-  } catch (err: unknown) {
-    const e = err as { name?: string; status?: number; message?: string };
-    const isTimeout =
-      e?.name === "APIConnectionTimeoutError" ||
-      e?.name === "AbortError" ||
-      /timeout/i.test(e?.message ?? "");
-    if (isTimeout) {
+  } catch (err) {
+    if (isTimeoutError(err)) {
       return NextResponse.json(
         { error: "AI extraction timed out" },
         { status: 408 },
       );
     }
-    console.error("[extract] claude error:", err);
+    console.error("[extract] claude error (receipt):", err);
     return NextResponse.json(
       { error: "AI extraction failed" },
       { status: 502 },
@@ -182,7 +276,7 @@ export async function POST(request: Request) {
     );
   }
 
-  const validation = ExtractVoiceResponseSchema.safeParse(parsed);
+  const validation = ExtractReceiptResponseSchema.safeParse(parsed);
   if (!validation.success) {
     return NextResponse.json(
       {
@@ -193,9 +287,7 @@ export async function POST(request: Request) {
     );
   }
 
-  if (isDev) {
-    await writeCache(captureId, validation.data);
-  }
+  if (isDev) await writeCache(captureId, validation.data);
 
   return NextResponse.json({
     extracted: validation.data,
