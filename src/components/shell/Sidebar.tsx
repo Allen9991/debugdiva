@@ -71,6 +71,17 @@ const NAV: NavItem[] = [
     ),
   },
   {
+    id: "draft-emails",
+    label: "Draft Emails",
+    href: "/draft-emails",
+    icon: (
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+        <rect x="3" y="5" width="18" height="14" rx="2" stroke="currentColor" strokeWidth="1.7" />
+        <path d="M4 7l8 6 8-6" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" />
+      </svg>
+    ),
+  },
+  {
     id: "assistant",
     label: "Assistant",
     href: "/assistant",
