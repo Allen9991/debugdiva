@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { Resend } from "resend";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { formatCurrency } from "@/lib/format";
+import { getEnvVar } from "@/lib/claude/client";
 
 type DocumentType = "invoice" | "quote" | "message";
 
@@ -228,7 +229,7 @@ export async function POST(request: Request) {
     );
   }
 
-  const apiKey = process.env.RESEND_API_KEY;
+  const apiKey = getEnvVar("RESEND_API_KEY");
   if (!apiKey) {
     return NextResponse.json(
       { error: "RESEND_API_KEY is not configured" },
