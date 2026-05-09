@@ -1,15 +1,10 @@
 import Link from "next/link";
+import { headers } from "next/headers";
 import { notFound } from "next/navigation";
 
-import {
-  demoCaptures,
-  demoClients,
-  demoInvoices,
-  demoJobs,
-  demoMessages,
-  demoQuotes,
-} from "@/lib/demo-data";
-import type { Material } from "@/lib/types";
+import type { Capture, Client, Invoice, Job, Material, Message, Quote } from "@/lib/types";
+
+export const dynamic = "force-dynamic";
 
 type JobDetailPageProps = {
   params: Promise<{
@@ -25,19 +20,43 @@ function materialsTotal(materials: Material[]) {
   return materials.reduce((sum, item) => sum + item.cost, 0);
 }
 
+type JobDetailResponse = {
+  job: Job;
+  client: Client | null;
+  invoice: Invoice | null;
+  quote: Quote | null;
+  captures: Capture[];
+  messages: Message[];
+};
+
+async function getJobDetail(id: string): Promise<JobDetailResponse | null> {
+  const headersList = await headers();
+  const host = headersList.get("host") ?? "localhost:3000";
+  const protocol = process.env.NODE_ENV === "development" ? "http" : "https";
+  const response = await fetch(`${protocol}://${host}/api/jobs/${id}`, {
+    cache: "no-store",
+  });
+
+  if (response.status === 404) {
+    return null;
+  }
+
+  if (!response.ok) {
+    throw new Error("Failed to load job detail");
+  }
+
+  return response.json();
+}
+
 export default async function JobDetailPage({ params }: JobDetailPageProps) {
   const { id } = await params;
-  const job = demoJobs.find((item) => item.id === id);
+  const detail = await getJobDetail(id);
 
-  if (!job) {
+  if (!detail) {
     notFound();
   }
 
-  const client = demoClients.find((item) => item.id === job.client_id) ?? null;
-  const invoice = demoInvoices.find((item) => item.job_id === job.id) ?? null;
-  const quote = demoQuotes.find((item) => item.job_id === job.id) ?? null;
-  const captures = demoCaptures.filter((item) => item.job_id === job.id);
-  const messages = demoMessages.filter((item) => item.job_id === job.id);
+  const { job, client, invoice, quote, captures, messages } = detail;
 
   return (
     <main className="mx-auto max-w-7xl space-y-5 px-4 py-5 md:px-8 md:py-8">

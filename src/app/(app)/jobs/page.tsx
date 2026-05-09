@@ -1,7 +1,9 @@
 import Link from "next/link";
+import { headers } from "next/headers";
 
-import { getJobsWithClients } from "@/lib/demo-data";
-import type { JobStatus, Material } from "@/lib/types";
+import type { JobStatus, JobWithClient, Material } from "@/lib/types";
+
+export const dynamic = "force-dynamic";
 
 const statusStyles: Record<JobStatus, string> = {
   new: "bg-slate-100 text-slate-700",
@@ -17,8 +19,24 @@ function materialsTotal(materials: Material[]) {
   return materials.reduce((sum, item) => sum + item.cost, 0);
 }
 
-export default function JobsPage() {
-  const jobs = getJobsWithClients();
+async function getJobs(): Promise<JobWithClient[]> {
+  const headersList = await headers();
+  const host = headersList.get("host") ?? "localhost:3000";
+  const protocol = process.env.NODE_ENV === "development" ? "http" : "https";
+  const response = await fetch(`${protocol}://${host}/api/jobs`, {
+    cache: "no-store",
+  });
+
+  if (!response.ok) {
+    throw new Error("Failed to load jobs");
+  }
+
+  const data = (await response.json()) as { jobs: JobWithClient[] };
+  return data.jobs;
+}
+
+export default async function JobsPage() {
+  const jobs = await getJobs();
 
   return (
     <main className="mx-auto max-w-7xl space-y-5 px-4 py-5 md:px-8 md:py-8">

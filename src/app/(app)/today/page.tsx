@@ -1,38 +1,59 @@
 import Link from "next/link";
+import { headers } from "next/headers";
 
 import { CaptureHub } from "@/components/capture/CaptureHub";
 import { PendingActions } from "@/components/shell/PendingActions";
 import { StatsCards } from "@/components/shell/StatsCards";
-import { demoCaptures, demoInvoices, demoJobs, demoQuotes } from "@/lib/demo-data";
-import { buildReminderQueue } from "@/lib/reminders/engine";
+import type { PendingAction } from "@/lib/types";
 
-export default function TodayPage() {
-  const pendingActions = buildReminderQueue({
-    jobs: demoJobs,
-    invoices: demoInvoices,
-    quotes: demoQuotes,
-    captures: demoCaptures,
+export const dynamic = "force-dynamic";
+
+type DashboardData = {
+  pending_actions: PendingAction[];
+  stats: {
+    jobs_today: number;
+    unpaid_invoices: number;
+    quotes_pending: number;
+    receipts_unlinked: number;
+  };
+};
+
+async function getDashboardData(): Promise<DashboardData> {
+  const headersList = await headers();
+  const host = headersList.get("host") ?? "localhost:3000";
+  const protocol = process.env.NODE_ENV === "development" ? "http" : "https";
+  const response = await fetch(`${protocol}://${host}/api/dashboard/today`, {
+    cache: "no-store",
   });
-  const today = new Date().toISOString().slice(0, 10);
+
+  if (!response.ok) {
+    throw new Error("Failed to load dashboard data");
+  }
+
+  return response.json();
+}
+
+export default async function TodayPage() {
+  const dashboard = await getDashboardData();
   const stats = [
     {
       label: "Jobs today",
-      value: demoJobs.filter((job) => job.created_at.slice(0, 10) === today).length,
+      value: dashboard.stats.jobs_today,
       helper: "Work captured today",
     },
     {
       label: "Unpaid invoices",
-      value: demoInvoices.filter((invoice) => invoice.status === "sent").length,
+      value: dashboard.stats.unpaid_invoices,
       helper: "Needs payment follow-up",
     },
     {
       label: "Quotes pending",
-      value: demoQuotes.filter((quote) => quote.status === "sent").length,
+      value: dashboard.stats.quotes_pending,
       helper: "Waiting on client replies",
     },
     {
       label: "Receipts unlinked",
-      value: demoCaptures.filter((capture) => capture.type === "receipt" && !capture.job_id).length,
+      value: dashboard.stats.receipts_unlinked,
       helper: "Needs attaching to jobs",
     },
   ];
@@ -65,7 +86,7 @@ export default function TodayPage() {
 
       <div className="grid gap-5 xl:grid-cols-[1.15fr_0.85fr]">
         <div className="space-y-5">
-          <PendingActions actions={pendingActions} />
+          <PendingActions actions={dashboard.pending_actions} />
           <CaptureHub />
         </div>
 
