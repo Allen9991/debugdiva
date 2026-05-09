@@ -4,11 +4,135 @@
 
 :root {
   color-scheme: light;
+
+  /* Surfaces & text */
+  --ink: #0B1220;
+  --surface: #FFFFFF;
+  --bg: #F8FAFC;
+  --bg-desktop: #F4F5F8;
+  --muted: #64748B;
+  --faint: #94A3B8;
+  --border: #E2E8F0;
+  --border-strong: #CBD5E1;
+
+  /* Accent (coral default) */
+  --accent: #FF5E4D;
+  --accent-soft: #FDECEA;
+
+  /* Forgiveness Mode (warm amber) */
+  --amber-bg: #FEF3C7;
+  --amber-bg-hi: #FCD34D;
+  --amber-fg: #92400E;
+  --amber-fg-dark: #78350F;
+  --amber-border: #FDE68A;
+
+  /* Status pills */
+  --emerald-bg: #D1FAE5;
+  --emerald-fg: #047857;
+  --draft-bg: #FEF3C7;
+  --draft-fg: #92400E;
+  --quote-bg: #E0E7FF;
+  --quote-fg: #3730A3;
+
+  /* Mascot accents */
+  --mahi-yellow: #FFD43B;
+
+  /* Typography */
+  --font-sans: -apple-system, "SF Pro Text", "Inter", system-ui, sans-serif;
+
+  /* Radii */
+  --radius-pill: 999px;
+  --radius-input: 12px;
+  --radius-card: 16px;
+  --radius-card-lg: 20px;
+  --radius-hero: 24px;
+
+  /* Shadows */
+  --shadow-card: 0 1px 0 rgba(15, 23, 42, 0.02), 0 4px 14px rgba(15, 23, 42, 0.04);
+  --shadow-elevated: 0 8px 22px rgba(11, 18, 32, 0.22);
+  --shadow-accent: 0 6px 18px rgba(255, 94, 77, 0.4);
+  --shadow-hero: 0 12px 30px rgba(255, 94, 77, 0.33), 0 1px 0 rgba(255, 255, 255, 0.4) inset;
+  --shadow-mahi-float: 0 20px 60px rgba(11, 18, 32, 0.25), 0 0 0 1px rgba(11, 18, 32, 0.06);
 }
 
 body {
   margin: 0;
-  font-family: Arial, sans-serif;
-  background: #f8fafc;
-  color: #0f172a;
+  font-family: var(--font-sans);
+  background: var(--bg);
+  color: var(--ink);
+  font-feature-settings: "ss01", "cv11";
+}
+
+/* Tabular numbers for money/timers/stats */
+.tabular,
+.tabular-nums {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Typography scale */
+.t-display {
+  font-size: 30px;
+  font-weight: 800;
+  letter-spacing: -0.7px;
+  line-height: 1.1;
+}
+.t-title {
+  font-size: 22px;
+  font-weight: 800;
+  letter-spacing: -0.5px;
+}
+.t-section {
+  font-size: 17px;
+  font-weight: 800;
+  letter-spacing: -0.3px;
+}
+.t-body {
+  font-size: 14.5px;
+  font-weight: 500;
+  line-height: 1.5;
+}
+.t-caption {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--muted);
+}
+.t-eyebrow {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 1.4px;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+/* Responsive layout switches */
+.gh-mobile-only { display: block; }
+.gh-desktop-only { display: none; }
+@media (min-width: 1024px) {
+  .gh-mobile-only { display: none; }
+  .gh-desktop-only { display: block; }
+}
+
+/* Animations referenced by capture/forgiveness flows */
+@keyframes agFade {
+  from { opacity: 0; transform: translateY(2px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes agBlink {
+  50% { opacity: 0; }
+}
+@keyframes agBar {
+  0%, 100% { transform: scaleY(0.3); }
+  50% { transform: scaleY(1); }
+}
+@keyframes agDot {
+  0%, 100% { transform: translateY(0); opacity: 0.4; }
+  50% { transform: translateY(-6px); opacity: 1; }
+}
+@keyframes agSlide {
+  from { opacity: 0; transform: translateY(-8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes agFadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
 }
