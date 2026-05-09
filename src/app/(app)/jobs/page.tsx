@@ -1,4 +1,7 @@
-import { headers } from "next/headers";
+import Link from "next/link";
+import { GhostlyFrame } from "@/components/shell/GhostlyFrame";
+import { Card, Eyebrow, Pill } from "@/components/ui/primitives";
+import { getBaseUrl } from "@/lib/server/base-url";
 
 type JobStatus =
   | "new"
@@ -35,11 +38,8 @@ type JobsResponse = {
 };
 
 async function getJobs(): Promise<Job[]> {
-  const headersList = await headers();
-  const host = headersList.get("host") ?? "localhost:3000";
-  const protocol = process.env.NODE_ENV === "development" ? "http" : "https";
-
-  const response = await fetch(`${protocol}://${host}/api/jobs`, {
+  const baseUrl = await getBaseUrl();
+  const response = await fetch(`${baseUrl}/api/jobs`, {
     cache: "no-store",
   });
 
@@ -51,22 +51,26 @@ async function getJobs(): Promise<Job[]> {
   return data.jobs;
 }
 
-function statusStyles(status: JobStatus) {
-  const styles: Record<JobStatus, string> = {
-    new: "bg-slate-100 text-slate-700",
-    quoted: "bg-blue-50 text-blue-700",
-    approved: "bg-indigo-50 text-indigo-700",
-    in_progress: "bg-amber-50 text-amber-700",
-    completed: "bg-emerald-50 text-emerald-700",
-    invoiced: "bg-purple-50 text-purple-700",
-    paid: "bg-green-50 text-green-700",
+function statusTone(status: JobStatus) {
+  const tones: Record<JobStatus, { tone: "soft" | "amber" | "emerald" | "accent"; label: string }> = {
+    new: { tone: "soft", label: "New" },
+    quoted: { tone: "accent", label: "Quoted" },
+    approved: { tone: "soft", label: "Approved" },
+    in_progress: { tone: "amber", label: "In progress" },
+    completed: { tone: "emerald", label: "Completed" },
+    invoiced: { tone: "accent", label: "Invoiced" },
+    paid: { tone: "emerald", label: "Paid" },
   };
 
-  return styles[status];
+  return tones[status];
 }
 
-function formatStatus(status: JobStatus) {
-  return status.replace("_", " ");
+function formatCurrency(value: number) {
+  return new Intl.NumberFormat("en-NZ", {
+    style: "currency",
+    currency: "NZD",
+    minimumFractionDigits: value % 1 === 0 ? 0 : 2,
+  }).format(value);
 }
 
 function materialsTotal(materials: { name: string; cost: number }[]) {
@@ -75,119 +79,200 @@ function materialsTotal(materials: { name: string; cost: number }[]) {
 
 export default async function JobsPage() {
   const jobs = await getJobs();
+  const completedJobs = jobs.filter((job) => job.status === "completed" || job.status === "paid").length;
+  const totalLabour = jobs.reduce((sum, job) => sum + job.labour_hours, 0);
 
   return (
-    <main className="min-h-screen bg-slate-50 text-slate-950">
-      <div className="mx-auto flex min-h-screen max-w-7xl flex-col gap-6 px-4 py-6 md:px-8 lg:flex-row">
-        <aside className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm lg:w-64">
-          <div className="mb-8">
-            <p className="text-2xl font-bold tracking-tight">Admin Ghost</p>
-            <p className="mt-1 text-sm text-slate-500">
-              AI admin for busy tradies
-            </p>
+    <GhostlyFrame
+      eyebrow="Job memory"
+      title="Every job kept in one place."
+      description="Ghostly turns scattered job notes into a usable memory system so client, location, labour, materials, drafts, and follow-ups stay connected."
+      aside={<JobsAside jobs={jobs} />}
+    >
+      <div style={{ display: "grid", gap: 18 }}>
+        <Card padding={20}>
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
+              gap: 12,
+            }}
+          >
+            <Metric label="Total jobs" value={String(jobs.length)} helper="Tracked in the Ghostly demo workspace" />
+            <Metric label="Completed" value={String(completedJobs)} helper="Ready to invoice or already paid" />
+            <Metric label="Labour hours" value={`${totalLabour}h`} helper="Captured from notes and structured records" />
           </div>
+        </Card>
 
-          <nav className="space-y-2 text-sm font-medium">
-            <a
-              href="/"
-              className="block rounded-2xl px-4 py-3 text-slate-600 hover:bg-slate-100"
-            >
-              Today
-            </a>
-            <a
-              href="/jobs"
-              className="block rounded-2xl bg-slate-950 px-4 py-3 text-white"
-            >
-              Jobs
-            </a>
-            <a className="block rounded-2xl px-4 py-3 text-slate-600 hover:bg-slate-100">
-              Invoices
-            </a>
-            <a className="block rounded-2xl px-4 py-3 text-slate-600 hover:bg-slate-100">
-              Quotes
-            </a>
-            <a className="block rounded-2xl px-4 py-3 text-slate-600 hover:bg-slate-100">
-              Assistant
-            </a>
-          </nav>
-        </aside>
+        <div style={{ display: "grid", gap: 14 }}>
+          {jobs.map((job) => {
+            const status = statusTone(job.status);
+            const total = materialsTotal(job.materials) + job.labour_hours * 95;
 
-        <section className="flex-1 space-y-6">
-          <header className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm md:p-8">
-            <p className="text-sm font-medium text-blue-600">Job memory</p>
-            <h1 className="mt-2 text-3xl font-bold tracking-tight md:text-4xl">
-              Jobs
-            </h1>
-            <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-600 md:text-base">
-              Every job keeps the client, location, materials, captures,
-              invoices, quotes, and follow-ups in one place.
-            </p>
-          </header>
-
-          <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm md:p-6">
-            <div className="mb-5 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-              <div>
-                <h2 className="text-xl font-bold">Active jobs</h2>
-                <p className="mt-1 text-sm text-slate-500">
-                  Demo plumber jobs for Ghost Plumbing.
-                </p>
-              </div>
-
-              <button className="rounded-2xl bg-slate-950 px-4 py-3 text-sm font-semibold text-white hover:bg-slate-800">
-                + New job
-              </button>
-            </div>
-
-            <div className="grid gap-4">
-              {jobs.map((job) => (
-                <a
-                  key={job.id}
-                  href={`/jobs/${job.id}`}
-                  className="block rounded-3xl border border-slate-200 p-5 transition hover:border-blue-300 hover:bg-blue-50/30"
-                >
-                  <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
-                    <div>
-                      <div className="flex flex-wrap items-center gap-2">
-                        <span
-                          className={`rounded-full px-3 py-1 text-xs font-semibold capitalize ${statusStyles(
-                            job.status,
-                          )}`}
-                        >
-                          {formatStatus(job.status)}
-                        </span>
-                        <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-600">
-                          {job.labour_hours}h labour
-                        </span>
+            return (
+              <Link
+                key={job.id}
+                href={`/jobs/${job.id}`}
+                style={{
+                  textDecoration: "none",
+                  color: "inherit",
+                }}
+              >
+                <Card padding={20}>
+                  <div
+                    style={{
+                      display: "flex",
+                      flexDirection: "column",
+                      gap: 14,
+                    }}
+                  >
+                    <div
+                      style={{
+                        display: "flex",
+                        alignItems: "flex-start",
+                        justifyContent: "space-between",
+                        gap: 12,
+                        flexWrap: "wrap",
+                      }}
+                    >
+                      <div>
+                        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                          <Pill tone={status.tone}>{status.label}</Pill>
+                          <Pill tone="outline">{job.labour_hours}h labour</Pill>
+                        </div>
+                        <h2 style={{ margin: "12px 0 0", fontSize: 22, fontWeight: 800, letterSpacing: -0.5 }}>
+                          {job.client_name}
+                        </h2>
+                        <p style={{ margin: "5px 0 0", fontSize: 14.5, color: "var(--muted)" }}>
+                          {job.location}
+                        </p>
                       </div>
 
-                      <h3 className="mt-3 text-lg font-bold text-slate-950">
-                        {job.client_name}
-                      </h3>
-                      <p className="mt-1 text-sm font-medium text-slate-600">
-                        {job.location}
-                      </p>
-                      <p className="mt-3 max-w-3xl text-sm leading-6 text-slate-600">
-                        {job.description}
-                      </p>
+                      <div
+                        className="tabular-nums"
+                        style={{
+                          minWidth: 120,
+                          textAlign: "right",
+                        }}
+                      >
+                        <div style={{ fontSize: 12, fontWeight: 700, letterSpacing: 1.2, textTransform: "uppercase", color: "var(--muted)" }}>
+                          Est. value
+                        </div>
+                        <div style={{ marginTop: 6, fontSize: 24, fontWeight: 800, letterSpacing: -0.6 }}>
+                          {formatCurrency(total)}
+                        </div>
+                      </div>
                     </div>
 
-                    <div className="rounded-2xl bg-slate-50 p-4 text-sm md:min-w-44">
-                      <p className="text-slate-500">Materials</p>
-                      <p className="mt-1 text-2xl font-bold">
-                        ${materialsTotal(job.materials).toFixed(2)}
-                      </p>
-                      <p className="mt-1 text-slate-500">
-                        {job.materials.length} item
-                        {job.materials.length === 1 ? "" : "s"}
-                      </p>
+                    <p style={{ margin: 0, fontSize: 14.5, lineHeight: 1.6, color: "var(--ink)" }}>
+                      {job.description}
+                    </p>
+
+                    <div
+                      style={{
+                        display: "grid",
+                        gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))",
+                        gap: 10,
+                      }}
+                    >
+                      <MiniStat label="Materials" value={formatCurrency(materialsTotal(job.materials))} />
+                      <MiniStat label="Items used" value={String(job.materials.length)} />
+                      <MiniStat label="Updated" value={new Date(job.updated_at).toLocaleDateString("en-NZ")} />
                     </div>
                   </div>
-                </a>
-              ))}
-            </div>
-          </section>
-        </section>
+                </Card>
+              </Link>
+            );
+          })}
+        </div>
       </div>
-    </main>
+    </GhostlyFrame>
+  );
+}
+
+function Metric({
+  label,
+  value,
+  helper,
+}: {
+  label: string;
+  value: string;
+  helper: string;
+}) {
+  return (
+    <div style={{ borderRadius: 16, background: "#fff", border: "1px solid var(--border)", padding: 16 }}>
+      <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: 1.2, textTransform: "uppercase", color: "var(--muted)" }}>
+        {label}
+      </div>
+      <div style={{ marginTop: 8, fontSize: 28, fontWeight: 800, letterSpacing: -0.7 }}>
+        {value}
+      </div>
+      <p style={{ margin: "6px 0 0", fontSize: 13.5, lineHeight: 1.5, color: "var(--muted)" }}>
+        {helper}
+      </p>
+    </div>
+  );
+}
+
+function MiniStat({ label, value }: { label: string; value: string }) {
+  return (
+    <div
+      style={{
+        borderRadius: 14,
+        background: "rgba(255,255,255,0.72)",
+        border: "1px solid var(--border)",
+        padding: 14,
+      }}
+    >
+      <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: 1.1, textTransform: "uppercase", color: "var(--muted)" }}>
+        {label}
+      </div>
+      <div style={{ marginTop: 6, fontSize: 16, fontWeight: 700 }}>{value}</div>
+    </div>
+  );
+}
+
+function JobsAside({ jobs }: { jobs: Job[] }) {
+  const nextJob = jobs[0];
+
+  return (
+    <div style={{ display: "grid", gap: 16 }}>
+      <Card padding={18}>
+        <Eyebrow>How Ghostly helps</Eyebrow>
+        <p style={{ margin: "10px 0 0", fontSize: 14.5, lineHeight: 1.6, color: "var(--muted)" }}>
+          Tradies do not need another spreadsheet. They need a calm memory. This tab is where messy capture turns into dependable records.
+        </p>
+      </Card>
+
+      {nextJob ? (
+        <Card padding={18}>
+          <Eyebrow>Next likely action</Eyebrow>
+          <h2 style={{ margin: "8px 0 0", fontSize: 20, fontWeight: 800, letterSpacing: -0.4 }}>
+            Review {nextJob.client_name}
+          </h2>
+          <p style={{ margin: "10px 0 0", fontSize: 14.5, lineHeight: 1.6, color: "var(--muted)" }}>
+            Job detail is the anchor point for invoice drafts, material receipts, and follow-up messages.
+          </p>
+          <Link
+            href={`/jobs/${nextJob.id}`}
+            style={{
+              marginTop: 14,
+              display: "inline-flex",
+              alignItems: "center",
+              justifyContent: "center",
+              height: 42,
+              padding: "0 16px",
+              borderRadius: 12,
+              background: "var(--ink)",
+              color: "#fff",
+              textDecoration: "none",
+              fontWeight: 700,
+            }}
+          >
+            Open job
+          </Link>
+        </Card>
+      ) : null}
+    </div>
   );
 }

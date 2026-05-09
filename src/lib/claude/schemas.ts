@@ -94,6 +94,8 @@ export const ChatResponseSchema = z.object({
 export type ChatRequest = z.infer<typeof ChatRequestSchema>;
 export type ChatResponse = z.infer<typeof ChatResponseSchema>;
 export type SuggestedAction = z.infer<typeof SuggestedActionSchema>;
+export type ChatJob = z.infer<typeof ChatJobSchema>;
+export type ChatInvoice = z.infer<typeof ChatInvoiceSchema>;
 
 export const structuredOutputSchemas = {
   voiceExtraction: ExtractVoiceResponseSchema,

@@ -110,11 +110,11 @@ body {
 }
 
 /* Responsive layout switches */
-.gh-mobile-only { display: block; }
-.gh-desktop-only { display: none; }
+.gh-mobile-only { display: block !important; }
+.gh-desktop-only { display: none !important; }
 @media (min-width: 1024px) {
-  .gh-mobile-only { display: none; }
-  .gh-desktop-only { display: block; }
+  .gh-mobile-only { display: none !important; }
+  .gh-desktop-only { display: block !important; }
 }
 
 /* Animations referenced by capture/forgiveness flows */
