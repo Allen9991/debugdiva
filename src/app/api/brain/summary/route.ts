@@ -4,7 +4,7 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 export const runtime = "nodejs";
 
-const CLAUDE_MODEL = "claude-sonnet-4-6";
+const CLAUDE_MODEL = "claude-sonnet-4-5";
 
 type CompletedJob = {
   id: string;

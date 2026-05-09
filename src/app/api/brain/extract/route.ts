@@ -15,11 +15,10 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 export const runtime = "nodejs";
 
-const CLAUDE_MODEL = "claude-sonnet-4-6";
+const CLAUDE_MODEL = "claude-sonnet-4-5";
 const BUSINESS_TYPE = "tradie";
 const CACHE_DIR = path.join(process.cwd(), "tests", "cache");
 
-// Schema source: supabase/migrations/0001_initial_schema.sql (Jayden).
 type CaptureRow = {
   id: string;
   type: "voice" | "receipt";
@@ -83,6 +82,22 @@ function isTimeoutError(err: unknown): boolean {
   );
 }
 
+async function markCaptureProcessed(captureId: string) {
+  try {
+    const supabase = await createSupabaseServerClient();
+    const { error } = await supabase
+      .from("captures")
+      .update({ processed: true })
+      .eq("id", captureId);
+
+    if (error) {
+      console.warn("[extract] failed to mark capture processed:", error);
+    }
+  } catch (err) {
+    console.warn("[extract] processed flag skipped:", err);
+  }
+}
+
 export async function POST(request: Request) {
   let body: { capture_id?: string };
   try {
@@ -108,9 +123,11 @@ export async function POST(request: Request) {
       .select("id, type, raw_text, image_url, audio_url, created_at, processed")
       .eq("id", captureId)
       .single<CaptureRow>();
+
     if (error) {
       console.error("[extract] supabase error:", error);
     }
+
     capture = data;
   } catch (err) {
     console.error("[extract] supabase threw:", err);
@@ -138,6 +155,8 @@ export async function POST(request: Request) {
       const cached = await readCache(captureId, ExtractVoiceResponseSchema);
       if (cached) {
         return NextResponse.json({
+          status: "accepted",
+          message: "Voice capture extracted and ready for review.",
           extracted: cached,
           capture_id: captureId,
           processed_at: new Date().toISOString(),
@@ -167,6 +186,7 @@ export async function POST(request: Request) {
           { status: 408 },
         );
       }
+
       console.error("[extract] claude error (voice):", err);
       return NextResponse.json(
         { error: "AI extraction failed" },
@@ -196,15 +216,17 @@ export async function POST(request: Request) {
     }
 
     if (isDev) await writeCache(captureId, validation.data);
+    await markCaptureProcessed(captureId);
 
     return NextResponse.json({
+      status: "accepted",
+      message: "Voice capture extracted and ready for review.",
       extracted: validation.data,
       capture_id: captureId,
       processed_at: new Date().toISOString(),
     });
   }
 
-  // capture.type === "receipt"
   if (!capture.image_url) {
     return NextResponse.json(
       { error: "Receipt capture is missing image_url" },
@@ -216,6 +238,8 @@ export async function POST(request: Request) {
     const cached = await readCache(captureId, ExtractReceiptResponseSchema);
     if (cached) {
       return NextResponse.json({
+        status: "accepted",
+        message: "Receipt capture extracted and ready for expense review.",
         extracted: cached,
         capture_id: captureId,
         processed_at: new Date().toISOString(),
@@ -259,6 +283,7 @@ export async function POST(request: Request) {
         { status: 408 },
       );
     }
+
     console.error("[extract] claude error (receipt):", err);
     return NextResponse.json(
       { error: "AI extraction failed" },
@@ -288,8 +313,11 @@ export async function POST(request: Request) {
   }
 
   if (isDev) await writeCache(captureId, validation.data);
+  await markCaptureProcessed(captureId);
 
   return NextResponse.json({
+    status: "accepted",
+    message: "Receipt capture extracted and ready for expense review.",
     extracted: validation.data,
     capture_id: captureId,
     processed_at: new Date().toISOString(),

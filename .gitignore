@@ -5,6 +5,7 @@ Thumbs.db
 # Editors
 .vscode/
 .idea/
+.claude/
 
 # Logs
 *.log
@@ -17,6 +18,7 @@ pnpm-debug.log*
 .env
 .env.*
 .env.local
+!.env.example
 
 # Dependencies
 node_modules/
@@ -29,6 +31,7 @@ out/
 dist/
 build/
 coverage/
+*.tsbuildinfo
 
 # Python cache
 __pycache__/

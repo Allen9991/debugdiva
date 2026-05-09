@@ -9,7 +9,7 @@ import {
 
 export const runtime = "nodejs";
 
-const CLAUDE_MODEL = "claude-sonnet-4-6";
+const CLAUDE_MODEL = "claude-sonnet-4-5";
 const BUSINESS_TYPE = "tradie";
 
 function extractTextFromClaude(message: {

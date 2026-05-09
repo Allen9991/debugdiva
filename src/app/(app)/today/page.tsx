@@ -1,4 +1,5 @@
 import { GhostSummary } from "@/components/brain/GhostSummary";
+import { CaptureHub } from "@/components/capture/CaptureHub";
 
 type Priority = "high" | "medium" | "low";
 
@@ -52,7 +53,7 @@ function actionLabel(type: PendingAction["type"]) {
   return "Missing info";
 }
 
-export default async function HomePage() {
+export default async function TodayPage() {
   const dashboard = await getDashboardData();
 
   const stats = [
@@ -91,28 +92,39 @@ export default async function HomePage() {
 
           <nav className="space-y-2 text-sm font-medium">
             <a
-              href="/"
+              href="/today"
               className="block rounded-2xl bg-slate-950 px-4 py-3 text-white"
             >
               Today
             </a>
-
+            <a
+              href="/capture"
+              className="block rounded-2xl px-4 py-3 text-slate-600 hover:bg-slate-100"
+            >
+              Capture
+            </a>
             <a
               href="/jobs"
               className="block rounded-2xl px-4 py-3 text-slate-600 hover:bg-slate-100"
             >
               Jobs
             </a>
-
-            <a className="block rounded-2xl px-4 py-3 text-slate-600 hover:bg-slate-100">
+            <a
+              href="/invoices"
+              className="block rounded-2xl px-4 py-3 text-slate-600 hover:bg-slate-100"
+            >
               Invoices
             </a>
-
-            <a className="block rounded-2xl px-4 py-3 text-slate-600 hover:bg-slate-100">
+            <a
+              href="/quotes"
+              className="block rounded-2xl px-4 py-3 text-slate-600 hover:bg-slate-100"
+            >
               Quotes
             </a>
-
-            <a className="block rounded-2xl px-4 py-3 text-slate-600 hover:bg-slate-100">
+            <a
+              href="/assistant"
+              className="block rounded-2xl px-4 py-3 text-slate-600 hover:bg-slate-100"
+            >
               Assistant
             </a>
           </nav>
@@ -134,21 +146,24 @@ export default async function HomePage() {
             <div className="flex flex-col gap-6 md:flex-row md:items-center md:justify-between">
               <div>
                 <p className="text-sm font-medium text-blue-200">
-                  Today’s admin brief
+                  Today's admin brief
                 </p>
                 <h1 className="mt-2 text-3xl font-bold tracking-tight md:text-4xl">
                   Morning, Mike. Your admin is under control.
                 </h1>
                 <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-200 md:text-base">
                   Admin Ghost found {dashboard.pending_actions.length} things
-                  needing attention. Start with Sarah’s draft invoice, then
-                  follow up Emma’s overdue payment.
+                  needing attention. Start with Sarah's draft invoice, then
+                  follow up Emma's overdue payment.
                 </p>
               </div>
 
-              <button className="rounded-2xl bg-white px-5 py-3 text-sm font-semibold text-slate-950 shadow-sm hover:bg-blue-50">
-                + Speak job note
-              </button>
+              <a
+                href="/capture"
+                className="rounded-2xl bg-white px-5 py-3 text-center text-sm font-semibold text-slate-950 shadow-sm hover:bg-blue-50"
+              >
+                Speak job note
+              </a>
             </div>
           </header>
 
@@ -166,6 +181,19 @@ export default async function HomePage() {
               </article>
             ))}
           </div>
+
+          <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm md:p-6">
+            <div className="mb-5 flex items-center justify-between">
+              <div>
+                <h2 className="text-xl font-bold">Quick capture</h2>
+                <p className="mt-1 text-sm text-slate-500">
+                  Speak the job note while it is fresh, then let Brain Zone
+                  extract the admin details.
+                </p>
+              </div>
+            </div>
+            <CaptureHub />
+          </section>
 
           <div className="grid gap-6 xl:grid-cols-[1.3fr_0.7fr]">
             <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm md:p-6">
@@ -205,9 +233,14 @@ export default async function HomePage() {
                       </p>
                     </div>
 
-                    <button className="rounded-xl bg-slate-950 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-800">
+                    <a
+                      href={
+                        action.job_id ? `/jobs/${action.job_id}` : "/capture"
+                      }
+                      className="rounded-xl bg-slate-950 px-4 py-2 text-center text-sm font-semibold text-white hover:bg-slate-800"
+                    >
                       Review
-                    </button>
+                    </a>
                   </div>
                 ))}
               </div>
@@ -217,7 +250,7 @@ export default async function HomePage() {
               <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm md:p-6">
                 <h2 className="text-xl font-bold">AI suggestion</h2>
                 <p className="mt-3 text-sm leading-6 text-slate-600">
-                  Sarah’s leak repair job is complete and already has a draft
+                  Sarah's leak repair job is complete and already has a draft
                   invoice. Send that first because it directly turns completed
                   work into cash.
                 </p>
@@ -225,7 +258,7 @@ export default async function HomePage() {
                   href="/jobs/33333333-3333-3333-3333-333333333333"
                   className="mt-5 block w-full rounded-2xl bg-blue-600 px-4 py-3 text-center text-sm font-semibold text-white hover:bg-blue-700"
                 >
-                  Open Sarah’s job
+                  Open Sarah's job
                 </a>
               </section>
 
@@ -243,17 +276,6 @@ export default async function HomePage() {
                 <p className="mt-2 text-sm font-medium text-amber-700">
                   High, but manageable
                 </p>
-              </section>
-
-              <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm md:p-6">
-                <h2 className="text-xl font-bold">Voice-to-admin</h2>
-                <p className="mt-3 text-sm leading-6 text-slate-600">
-                  Demo flow: speak a job note, create a job record, draft an
-                  invoice, and prepare a customer message.
-                </p>
-                <button className="mt-5 w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm font-semibold hover:bg-slate-50">
-                  Try demo capture
-                </button>
               </section>
             </aside>
           </div>
