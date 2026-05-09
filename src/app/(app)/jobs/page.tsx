@@ -1,8 +1,15 @@
-import { headers } from "next/headers";
 import Link from "next/link";
+import { headers } from "next/headers";
 import { Eyebrow, Pill } from "@/components/ui/primitives";
 
-type JobStatus = "new" | "quoted" | "approved" | "in_progress" | "completed" | "invoiced" | "paid";
+type JobStatus =
+  | "new"
+  | "quoted"
+  | "approved"
+  | "in_progress"
+  | "completed"
+  | "invoiced"
+  | "paid";
 
 type Job = {
   id: string;
@@ -15,26 +22,31 @@ type Job = {
 };
 
 async function getJobs(): Promise<Job[]> {
+  console.log("[JobsPage] fetching /api/jobs");
   const headersList = await headers();
   const host = headersList.get("host") ?? "localhost:3000";
   const protocol = process.env.NODE_ENV === "development" ? "http" : "https";
-  const response = await fetch(`${protocol}://${host}/api/jobs`, { cache: "no-store" });
-  if (!response.ok) throw new Error("Failed to load jobs");
+  const response = await fetch(protocol + "://" + host + "/api/jobs", { cache: "no-store" });
+  if (!response.ok) {
+    console.error("[JobsPage] failed to load jobs:", response.status);
+    return [];
+  }
   const data = await response.json();
-  return data.jobs;
+  console.log("[JobsPage] loaded", data.jobs?.length ?? 0, "jobs");
+  return data.jobs ?? [];
 }
 
 function statusTone(status: JobStatus): { bg: string; fg: string } {
   const map: Record<JobStatus, { bg: string; fg: string }> = {
-    new:         { bg: "var(--focus-soft)",  fg: "var(--focus)" },
-    quoted:      { bg: "var(--quote-bg)",    fg: "var(--quote-fg)" },
-    approved:    { bg: "var(--focus-soft)",  fg: "var(--focus)" },
-    in_progress: { bg: "var(--amber-bg)",    fg: "var(--amber-fg)" },
-    completed:   { bg: "var(--draft-bg)",    fg: "var(--draft-fg)" },
-    invoiced:    { bg: "var(--quote-bg)",    fg: "var(--quote-fg)" },
-    paid:        { bg: "var(--emerald-bg)",  fg: "var(--emerald-fg)" },
+    new: { bg: "#DBEAFE", fg: "#1E3A8A" },
+    quoted: { bg: "#EDE9FE", fg: "#5B21B6" },
+    approved: { bg: "#DBEAFE", fg: "#1E3A8A" },
+    in_progress: { bg: "#FEF3C7", fg: "#92400E" },
+    completed: { bg: "#D1FAE5", fg: "#065F46" },
+    invoiced: { bg: "#EDE9FE", fg: "#5B21B6" },
+    paid: { bg: "#D1FAE5", fg: "#065F46" },
   };
-  return map[status];
+  return map[status] ?? map.new;
 }
 
 function formatStatus(status: JobStatus) {
@@ -45,102 +57,49 @@ function materialsTotal(materials: { name: string; cost: number }[]) {
   return materials.reduce((sum, item) => sum + item.cost, 0);
 }
 
-const NAV = [
-  { label: "Today", href: "/" },
-  { label: "Jobs", href: "/jobs", active: true },
-  { label: "Invoices", href: "/invoices" },
-  { label: "Quotes", href: "/quotes" },
-  { label: "Assistant", href: "/assistant" },
-];
-
 export default async function JobsPage() {
   const jobs = await getJobs();
 
   return (
-    <main style={{ minHeight: "100vh", background: "var(--bg)", color: "var(--ink)" }}>
+    <main style={{ minHeight: "100vh", background: "var(--bg, #F8FAFC)", color: "var(--ink, #0B1220)" }}>
       <div style={{ maxWidth: 900, margin: "0 auto", padding: "28px 16px", display: "flex", flexDirection: "column", gap: 16 }}>
-
-        <header>
-          <Eyebrow>Job memory</Eyebrow>
-          <h1 style={{ margin: "6px 0 0", fontSize: 26, fontWeight: 800, letterSpacing: -0.5 }}>Jobs</h1>
-          <p style={{ margin: "4px 0 0", fontSize: 13.5, color: "var(--muted)", lineHeight: 1.5 }}>
-            Every job keeps the client, location, materials, captures, invoices, and follow-ups in one place.
-          </p>
+        <header style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
+          <div>
+            <Eyebrow>Job memory</Eyebrow>
+            <h1 style={{ margin: "6px 0 0", fontSize: 26, fontWeight: 800, letterSpacing: -0.5 }}>Jobs</h1>
+            <p style={{ margin: "4px 0 0", fontSize: 13.5, color: "var(--muted, #64748B)", lineHeight: 1.5 }}>
+              Every job keeps the client, location, materials, captures, invoices, and follow-ups in one place.
+            </p>
+          </div>
+          <Link
+            href="/jobs/new"
+            style={{ height: 38, padding: "0 16px", borderRadius: 10, background: "var(--accent, #FF5E4D)", color: "#fff", fontSize: 13, fontWeight: 700, textDecoration: "none", display: "inline-flex", alignItems: "center" }}
+          >
+            + New job
+          </Link>
         </header>
 
-        <nav className="gh-mobile-only" style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-          {NAV.map((item) => (
-            <Link
-              key={item.href}
-              href={item.href}
-              style={{
-                padding: "8px 16px",
-                borderRadius: 10,
-                fontSize: 13,
-                fontWeight: 600,
-                textDecoration: "none",
-                background: item.active ? "var(--accent)" : "var(--surface)",
-                color: item.active ? "#fff" : "var(--muted)",
-                border: `1px solid ${item.active ? "transparent" : "var(--border)"}`,
-              }}
-            >
-              {item.label}
-            </Link>
-          ))}
-        </nav>
-
-        <section
-          style={{
-            background: "var(--surface)",
-            borderRadius: "var(--radius-card-lg)",
-            border: "1px solid var(--border)",
-            boxShadow: "var(--shadow-card)",
-            padding: 20,
-          }}
-        >
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
-            <div>
-              <div style={{ fontSize: 17, fontWeight: 800, letterSpacing: -0.3 }}>Active jobs</div>
-              <p style={{ margin: "2px 0 0", fontSize: 13, color: "var(--muted)" }}>
-                Demo plumber jobs for Ghost Plumbing
-              </p>
-            </div>
-            <button
-              style={{
-                height: 38,
-                padding: "0 16px",
-                borderRadius: 10,
-                border: "none",
-                background: "var(--accent)",
-                color: "#fff",
-                fontSize: 13,
-                fontWeight: 600,
-                cursor: "pointer",
-              }}
-            >
-              + New job
-            </button>
+        <section style={{ background: "#fff", borderRadius: 18, border: "1px solid var(--border, #E2E8F0)", padding: 20 }}>
+          <div style={{ marginBottom: 16 }}>
+            <div style={{ fontSize: 17, fontWeight: 800, letterSpacing: -0.3 }}>Active jobs</div>
+            <p style={{ margin: "2px 0 0", fontSize: 13, color: "var(--muted, #64748B)" }}>
+              {jobs.length} job{jobs.length === 1 ? "" : "s"} on file
+            </p>
           </div>
 
           <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+            {jobs.length === 0 && (
+              <p style={{ fontSize: 13, color: "var(--muted, #64748B)" }}>
+                No jobs yet. Create one with the button above or capture a voice note from the Today page.
+              </p>
+            )}
             {jobs.map((job) => {
               const tone = statusTone(job.status);
               return (
                 <Link
                   key={job.id}
-                  href={`/jobs/${job.id}`}
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "space-between",
-                    gap: 12,
-                    padding: "14px 16px",
-                    borderRadius: 14,
-                    border: "1px solid var(--border)",
-                    background: "var(--bg)",
-                    textDecoration: "none",
-                    color: "var(--ink)",
-                  }}
+                  href={"/jobs/" + job.id}
+                  style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, padding: "14px 16px", borderRadius: 14, border: "1px solid var(--border, #E2E8F0)", background: "var(--bg, #F8FAFC)", textDecoration: "none", color: "var(--ink, #0B1220)" }}
                 >
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 6 }}>
@@ -148,25 +107,15 @@ export default async function JobsPage() {
                       <Pill tone="soft">{job.labour_hours}h labour</Pill>
                     </div>
                     <div style={{ fontSize: 15, fontWeight: 700 }}>{job.client_name}</div>
-                    <div style={{ fontSize: 13, color: "var(--muted)", marginTop: 2 }}>{job.location}</div>
-                    <div style={{ fontSize: 13, color: "var(--muted)", marginTop: 4, lineHeight: 1.45 }}>{job.description}</div>
+                    <div style={{ fontSize: 13, color: "var(--muted, #64748B)", marginTop: 2 }}>{job.location}</div>
+                    <div style={{ fontSize: 13, color: "var(--muted, #64748B)", marginTop: 4, lineHeight: 1.45 }}>{job.description}</div>
                   </div>
-                  <div
-                    style={{
-                      flexShrink: 0,
-                      textAlign: "right",
-                      background: "var(--surface)",
-                      border: "1px solid var(--border)",
-                      borderRadius: 12,
-                      padding: "10px 14px",
-                      minWidth: 110,
-                    }}
-                  >
-                    <div style={{ fontSize: 11, color: "var(--muted)", fontWeight: 600 }}>Materials</div>
+                  <div style={{ flexShrink: 0, textAlign: "right", background: "#fff", border: "1px solid var(--border, #E2E8F0)", borderRadius: 12, padding: "10px 14px", minWidth: 110 }}>
+                    <div style={{ fontSize: 11, color: "var(--muted, #64748B)", fontWeight: 600 }}>Materials</div>
                     <div className="tabular-nums" style={{ fontSize: 20, fontWeight: 800, marginTop: 2 }}>
                       ${materialsTotal(job.materials).toFixed(2)}
                     </div>
-                    <div style={{ fontSize: 11, color: "var(--muted)", marginTop: 2 }}>
+                    <div style={{ fontSize: 11, color: "var(--muted, #64748B)", marginTop: 2 }}>
                       {job.materials.length} item{job.materials.length === 1 ? "" : "s"}
                     </div>
                   </div>

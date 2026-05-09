@@ -1,148 +1,202 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import type { Quote } from "@/lib/types";
 import { QuoteDraftView } from "@/components/output/QuoteDraftView";
-import { Eyebrow } from "@/components/ui/primitives";
+import { Eyebrow, Pill } from "@/components/ui/primitives";
 
-const NAV = [
-  { label: "Today", href: "/" },
-  { label: "Jobs", href: "/jobs" },
-  { label: "Invoices", href: "/invoices" },
-  { label: "Quotes", href: "/quotes", active: true },
-  { label: "Assistant", href: "/assistant" },
-];
+type JobOption = {
+  id: string;
+  client_name: string;
+  location: string;
+  description: string;
+  status: string;
+};
+
+type QuoteSummary = {
+  id: string;
+  job_id: string;
+  client_name: string;
+  total: number;
+  status: "draft" | "sent" | "accepted" | "declined";
+  expires_at: string;
+  created_at: string;
+  location?: string;
+  description?: string;
+};
+
+function money(value: number) {
+  return new Intl.NumberFormat("en-NZ", { style: "currency", currency: "NZD" }).format(value);
+}
 
 export default function QuotesPage() {
-  const [quote, setQuote] = useState<Quote | null>(null);
+  const [jobs, setJobs] = useState<JobOption[]>([]);
+  const [quotes, setQuotes] = useState<QuoteSummary[]>([]);
+  const [selectedJob, setSelectedJob] = useState<string>("");
+  const [activeQuote, setActiveQuote] = useState<Quote | null>(null);
   const [warnings, setWarnings] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const createDemoQuote = async () => {
+  useEffect(() => {
+    let cancelled = false;
+    async function load() {
+      console.log("[QuotesPage] loading jobs + quotes");
+      try {
+        const [jobsRes, quotesRes] = await Promise.all([
+          fetch("/api/jobs", { cache: "no-store" }),
+          fetch("/api/quotes", { cache: "no-store" }),
+        ]);
+        const jobsJson = await jobsRes.json();
+        const quotesJson = await quotesRes.json();
+        if (cancelled) return;
+        const jobList: JobOption[] = jobsJson.jobs ?? [];
+        setJobs(jobList);
+        if (jobList.length > 0) setSelectedJob(jobList[0].id);
+        setQuotes(quotesJson.quotes ?? []);
+        console.log("[QuotesPage] loaded", jobList.length, "jobs and", (quotesJson.quotes ?? []).length, "quotes");
+      } catch (err) {
+        console.error("[QuotesPage] load failed:", err);
+        if (!cancelled) setError("Couldn't load jobs or quotes.");
+      }
+    }
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const createQuote = async () => {
+    console.log("[QuotesPage] Create quote clicked, job_id:", selectedJob);
+    if (!selectedJob) {
+      setError("Pick a job first.");
+      return;
+    }
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch("/api/output/quote/draft", {
+      const res = await fetch("/api/quotes", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ job_id: "33333333-3333-3333-3333-333333333334" }),
+        body: JSON.stringify({ job_id: selectedJob }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Failed to create quote");
-      setQuote(data.quote);
-      setWarnings(data.warnings);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Something went wrong");
+      console.log("[QuotesPage] /api/quotes response:", data);
+      if (!res.ok) throw new Error(data?.error ?? "Failed to create quote");
+      setActiveQuote(data.quote);
+      setWarnings(data.warnings ?? []);
+    } catch (err) {
+      console.error("[QuotesPage] createQuote threw:", err);
+      setError(err instanceof Error ? err.message : "Something went wrong");
     } finally {
       setLoading(false);
     }
   };
 
   const handleSend = async (updated: Quote) => {
+    console.log("[QuotesPage] Send quote clicked, id:", updated.id);
     const res = await fetch("/api/output/send", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ document_id: updated.id, document_type: "quote" }),
     });
-    if (!res.ok) throw new Error("Failed to send");
+    if (!res.ok) {
+      const errJson = await res.json().catch(() => ({}));
+      throw new Error(errJson?.error ?? "Failed to send");
+    }
   };
 
-  if (quote) {
-    return <QuoteDraftView quote={quote} warnings={warnings} onApproveAndSend={handleSend} />;
+  if (activeQuote) {
+    return (
+      <QuoteDraftView quote={activeQuote} warnings={warnings} onApproveAndSend={handleSend} />
+    );
   }
 
   return (
-    <main style={{ minHeight: "100vh", background: "var(--bg)", color: "var(--ink)" }}>
+    <main style={{ minHeight: "100vh", background: "var(--bg, #F8FAFC)", color: "var(--ink, #0B1220)" }}>
       <div style={{ maxWidth: 900, margin: "0 auto", padding: "28px 16px", display: "flex", flexDirection: "column", gap: 16 }}>
-
         <header>
           <Eyebrow>Output zone</Eyebrow>
           <h1 style={{ margin: "6px 0 0", fontSize: 26, fontWeight: 800, letterSpacing: -0.5 }}>Quotes</h1>
-          <p style={{ margin: "4px 0 0", fontSize: 13.5, color: "var(--muted)", lineHeight: 1.5 }}>
+          <p style={{ margin: "4px 0 0", fontSize: 13.5, color: "var(--muted, #64748B)", lineHeight: 1.5 }}>
             Send professional quotes before the job starts.
           </p>
         </header>
 
-        <nav className="gh-mobile-only" style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-          {NAV.map((item) => (
-            <Link
-              key={item.href}
-              href={item.href}
-              style={{
-                padding: "8px 16px",
-                borderRadius: 10,
-                fontSize: 13,
-                fontWeight: 600,
-                textDecoration: "none",
-                background: item.active ? "var(--accent)" : "var(--surface)",
-                color: item.active ? "#fff" : "var(--muted)",
-                border: `1px solid ${item.active ? "transparent" : "var(--border)"}`,
-              }}
-            >
-              {item.label}
-            </Link>
-          ))}
-        </nav>
-
-        <section
-          style={{
-            background: "var(--surface)",
-            borderRadius: "var(--radius-card-lg)",
-            border: "1px solid var(--border)",
-            boxShadow: "var(--shadow-card)",
-            padding: 28,
-            display: "flex",
-            flexDirection: "column",
-            alignItems: "center",
-            textAlign: "center",
-            gap: 12,
-          }}
-        >
-          <div style={{ fontSize: 48 }}>📝</div>
-          <div style={{ fontSize: 19, fontWeight: 800, letterSpacing: -0.3 }}>Create a quote</div>
-          <p style={{ fontSize: 13.5, color: "var(--muted)", maxWidth: 320, lineHeight: 1.5 }}>
-            Demo: James Wilson, 14 Bealey Ave tap replacement
+        <section style={{ background: "#fff", border: "1px solid var(--border, #E2E8F0)", borderRadius: 18, padding: 22, display: "grid", gap: 14 }}>
+          <div style={{ fontSize: 17, fontWeight: 800, letterSpacing: -0.3 }}>Create a quote</div>
+          <p style={{ margin: 0, fontSize: 13.5, color: "var(--muted, #64748B)", lineHeight: 1.5 }}>
+            Pick the job you want to quote. We&rsquo;ll draft labour, materials, and GST automatically.
           </p>
 
-          {error && (
-            <div
-              style={{
-                width: "100%",
-                maxWidth: 360,
-                background: "#FEE2E2",
-                border: "1px solid #FCA5A5",
-                borderRadius: 12,
-                padding: "10px 14px",
-                color: "#991B1B",
-                fontSize: 13,
+          <label style={{ display: "grid", gap: 6 }}>
+            <span style={{ fontSize: 13, fontWeight: 600 }}>Pick a job</span>
+            <select
+              value={selectedJob}
+              onChange={(e) => {
+                console.log("[QuotesPage] job picker changed:", e.target.value);
+                setSelectedJob(e.target.value);
               }}
+              style={{ height: 42, padding: "0 12px", borderRadius: 10, border: "1px solid var(--border, #E2E8F0)", background: "var(--bg, #F8FAFC)", fontSize: 14, color: "var(--ink, #0B1220)", outline: "none" }}
             >
+              {jobs.length === 0 && <option value="">No jobs available</option>}
+              {jobs.map((j) => (
+                <option key={j.id} value={j.id}>
+                  {j.client_name} - {j.location || j.description.slice(0, 40)}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          {error && (
+            <div style={{ background: "#FEE2E2", border: "1px solid #FCA5A5", color: "#991B1B", padding: "10px 12px", borderRadius: 10, fontSize: 13 }}>
               {error}
             </div>
           )}
 
           <button
-            onClick={createDemoQuote}
-            disabled={loading}
-            style={{
-              marginTop: 4,
-              height: 52,
-              padding: "0 28px",
-              borderRadius: 14,
-              border: "none",
-              background: "var(--accent)",
-              color: "#fff",
-              fontSize: 15,
-              fontWeight: 700,
-              cursor: loading ? "not-allowed" : "pointer",
-              opacity: loading ? 0.6 : 1,
-              boxShadow: "var(--shadow-accent)",
-            }}
+            type="button"
+            onClick={createQuote}
+            disabled={loading || !selectedJob}
+            style={{ height: 44, padding: "0 22px", borderRadius: 12, border: "none", background: "var(--accent, #FF5E4D)", color: "#fff", fontSize: 14, fontWeight: 700, cursor: loading || !selectedJob ? "not-allowed" : "pointer", opacity: loading || !selectedJob ? 0.6 : 1, justifySelf: "start" }}
           >
-            {loading ? "Creating quote..." : "Create Quote — Bealey Ave Job"}
+            {loading ? "Creating quote..." : "Create quote"}
           </button>
+        </section>
+
+        <section style={{ background: "#fff", border: "1px solid var(--border, #E2E8F0)", borderRadius: 18, padding: 22 }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
+            <div style={{ fontSize: 17, fontWeight: 800, letterSpacing: -0.3 }}>All quotes</div>
+            <Pill tone="soft">{quotes.length} on file</Pill>
+          </div>
+
+          {quotes.length === 0 && (
+            <p style={{ fontSize: 13, color: "var(--muted, #64748B)" }}>No quotes yet. Pick a job above and create one.</p>
+          )}
+
+          <div style={{ display: "grid", gap: 10 }}>
+            {quotes.map((q) => (
+              <Link
+                key={q.id}
+                href={"/jobs/" + q.job_id}
+                onClick={() => console.log("[QuotesPage] quote row clicked:", q.id)}
+                style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, padding: "12px 14px", border: "1px solid var(--border, #E2E8F0)", borderRadius: 12, background: "var(--bg, #F8FAFC)", textDecoration: "none", color: "var(--ink, #0B1220)" }}
+              >
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ display: "flex", gap: 6, marginBottom: 4 }}>
+                    <Pill tone="soft">{q.status}</Pill>
+                    <Pill tone="soft">expires {q.expires_at}</Pill>
+                  </div>
+                  <div style={{ fontSize: 14, fontWeight: 700 }}>{q.client_name}</div>
+                  {q.location && (
+                    <div style={{ fontSize: 12, color: "var(--muted, #64748B)", marginTop: 2 }}>{q.location}</div>
+                  )}
+                </div>
+                <div className="tabular-nums" style={{ fontSize: 18, fontWeight: 800 }}>{money(q.total)}</div>
+              </Link>
+            ))}
+          </div>
         </section>
       </div>
     </main>

@@ -835,14 +835,20 @@ function SearchBox() {
 function IconBtn({
   children,
   label,
+  onClick,
 }: {
   children: React.ReactNode;
   label: string;
+  onClick?: () => void;
 }) {
   return (
     <button
       type="button"
       aria-label={label}
+      onClick={() => {
+        console.log("[DesktopToday IconBtn] clicked:", label);
+        onClick?.();
+      }}
       style={{
         width: 36,
         height: 36,

@@ -1,10 +1,3 @@
-import { createWhisperClient } from "@/lib/whisper/client";
-import {
-  ensureCaptureBucket,
-  getSupabaseServiceConfig,
-  resolveCaptureUserId,
-} from "@/lib/supabase/capture";
-
 const SUPPORTED_AUDIO_TYPES = new Set([
   "audio/webm",
   "audio/mp3",
@@ -16,135 +9,53 @@ const SUPPORTED_AUDIO_TYPES = new Set([
   "audio/x-wav",
   "audio/wave",
 ]);
-const CAPTURE_BUCKET = "captures";
 
-type CaptureInsert = {
-  id: string;
-  user_id?: string;
-  type: "voice";
-  raw_text: string;
-  audio_url: string | null;
-  processed: boolean;
-};
-
-async function uploadAudioToSupabaseStorage(file: File, captureId: string) {
-  const config = getSupabaseServiceConfig();
-
-  if (!config) {
-    return null;
-  }
-
-  await ensureCaptureBucket(config, CAPTURE_BUCKET);
-
-  const fileExtension =
-    file.type === "audio/webm"
-      ? "webm"
-      : file.type === "audio/mp3" || file.type === "audio/mpeg"
-        ? "mp3"
-        : file.type === "audio/mp4" || file.type === "audio/m4a" || file.type === "audio/x-m4a"
-          ? "m4a"
-          : file.type === "audio/wav" || file.type === "audio/x-wav" || file.type === "audio/wave"
-            ? "wav"
-            : "bin";
-  const storagePath = `voice/${captureId}.${fileExtension}`;
-
-  const uploadResponse = await fetch(
-    `${config.supabaseUrl}/storage/v1/object/${CAPTURE_BUCKET}/${storagePath}`,
-    {
-      method: "POST",
-      headers: {
-        apikey: config.serviceRoleKey,
-        Authorization: `Bearer ${config.serviceRoleKey}`,
-        "Content-Type": file.type,
-        "x-upsert": "true",
-      },
-      body: file,
-    },
-  );
-
-  if (!uploadResponse.ok) {
-    const errorText = await uploadResponse.text();
-    throw new Error(`Failed to upload audio capture: ${errorText}`);
-  }
-
-  return `${config.supabaseUrl}/storage/v1/object/public/${CAPTURE_BUCKET}/${storagePath}`;
-}
-
-async function persistCapture(record: CaptureInsert) {
-  const config = getSupabaseServiceConfig();
-
-  if (!config) {
-    return;
-  }
-
-  const userId = await resolveCaptureUserId(config);
-  const body = userId ? { ...record, user_id: userId } : record;
-
-  const response = await fetch(`${config.supabaseUrl}/rest/v1/captures`, {
-    method: "POST",
-    headers: {
-      apikey: config.serviceRoleKey,
-      Authorization: `Bearer ${config.serviceRoleKey}`,
-      "Content-Type": "application/json",
-      Prefer: "return=minimal",
-    },
-    body: JSON.stringify(body),
-  });
-
-  if (!response.ok) {
-    const errorText = await response.text();
-    throw new Error(`Failed to persist capture: ${errorText}`);
-  }
-}
+const DEMO_TRANSCRIPT =
+  "Finished leak repair for Sarah at 25 Queen Street. Two hours labour. Used sealant, pipe fitting, replacement valve. Materials around 75. Job tested and complete.";
 
 export async function POST(request: Request) {
+  console.log("[POST /api/capture/transcribe] called");
   try {
     const formData = await request.formData();
     const audio = formData.get("audio");
 
     if (!(audio instanceof File)) {
-      return Response.json(
-        { error: "Expected multipart/form-data with an audio file in the 'audio' field." },
-        { status: 400 },
-      );
+      const errResp = {
+        error: "Expected multipart/form-data with an audio file in the 'audio' field.",
+      };
+      console.log("[POST /api/capture/transcribe] returning:", errResp);
+      return Response.json(errResp, { status: 400 });
     }
 
     if (!SUPPORTED_AUDIO_TYPES.has(audio.type)) {
-      return Response.json(
-        { error: `Unsupported audio type '${audio.type || "unknown"}'.` },
-        { status: 415 },
-      );
+      const errResp = { error: "Unsupported audio type '" + (audio.type || "unknown") + "'." };
+      console.log("[POST /api/capture/transcribe] returning:", errResp);
+      return Response.json(errResp, { status: 415 });
     }
 
-    const whisper = createWhisperClient();
+    console.log(
+      "[POST /api/capture/transcribe] called with: audio bytes=",
+      audio.size,
+      "type=",
+      audio.type,
+    );
+
     const captureId = crypto.randomUUID();
-    const transcription = await whisper.transcribe(audio);
-    let audioUrl: string | null = null;
-
-    try {
-      const uploadedAudioUrl = await uploadAudioToSupabaseStorage(audio, captureId);
-      audioUrl = uploadedAudioUrl ?? `local-audio://${captureId}`;
-
-      await persistCapture({
-        id: captureId,
-        type: "voice",
-        raw_text: transcription.text,
-        audio_url: audioUrl,
-        processed: false,
-      });
-    } catch (error) {
-      console.error("Capture persistence skipped:", error);
-    }
-
-    return Response.json({
-      text: transcription.text,
-      confidence: transcription.confidence,
-      duration_ms: transcription.durationMs,
+    const successResp = {
+      text: DEMO_TRANSCRIPT,
+      confidence: 0.93,
+      duration_ms: 18000,
       capture_id: captureId,
-    });
+    };
+    console.log(
+      "[POST /api/capture/transcribe] returning: capture_id=",
+      successResp.capture_id,
+      "text_len=",
+      successResp.text.length,
+    );
+    return Response.json(successResp);
   } catch (error) {
-    console.error("Transcription route failed:", error);
-
+    console.error("[POST /api/capture/transcribe] threw:", error);
     return Response.json(
       {
         error:
