@@ -4,6 +4,8 @@ import Link from "next/link";
 import { Mahi } from "@/components/mahi";
 import { MahiTag } from "@/components/ui/primitives";
 import { FloatingMahiChat } from "./FloatingMahiChat";
+import { MentalLoadMeter } from "@/components/wellbeing/MentalLoadMeter";
+import { WorkloadForecast } from "@/components/wellbeing/WorkloadForecast";
 
 type Priority = "high" | "medium" | "low";
 
@@ -519,6 +521,10 @@ export function DesktopToday({
                 ))}
               </div>
             </div>
+
+            <WorkloadForecast />
+
+            <MentalLoadMeter />
 
             {/* Schedule */}
             <div
