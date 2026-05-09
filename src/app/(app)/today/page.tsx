@@ -1,3 +1,4 @@
+import { headers } from "next/headers";
 import { GhostSummary } from "@/components/brain/GhostSummary";
 import { CaptureHub } from "@/components/capture/CaptureHub";
 
@@ -21,7 +22,13 @@ type DashboardData = {
 };
 
 async function getDashboardData(): Promise<DashboardData> {
-  const baseUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
+  const headerStore = await headers();
+  const forwardedHost = headerStore.get("x-forwarded-host");
+  const host = forwardedHost ?? headerStore.get("host");
+  const protocol = headerStore.get("x-forwarded-proto") ?? "https";
+  const baseUrl =
+    process.env.NEXT_PUBLIC_SITE_URL ??
+    (host ? `${protocol}://${host}` : "http://localhost:3000");
 
   const response = await fetch(`${baseUrl}/api/dashboard/today`, {
     cache: "no-store",

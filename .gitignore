@@ -39,3 +39,4 @@ __pycache__/
 
 # Brain zone dev cache (Claude responses keyed by capture_id)
 tests/cache/
+.vercel
