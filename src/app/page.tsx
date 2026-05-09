@@ -59,22 +59,6 @@ function actionLabel(type: PendingAction["type"]) {
   return "Missing info";
 }
 
-function actionHref(action: PendingAction) {
-  if (action.type === "send_invoice" && action.job_id) {
-    return `/invoices/${action.job_id}`;
-  }
-
-  if (action.type === "follow_up_quote") {
-    return "/quotes";
-  }
-
-  if (action.type === "attach_receipt") {
-    return action.job_id ? `/jobs/${action.job_id}#captures` : "/capture";
-  }
-
-  return action.job_id ? `/jobs/${action.job_id}` : "/assistant";
-}
-
 export default async function HomePage() {
   const dashboard = await getDashboardData();
 
@@ -127,24 +111,15 @@ export default async function HomePage() {
               Jobs
             </a>
 
-            <a
-              href="/invoices"
-              className="block rounded-2xl px-4 py-3 text-slate-600 hover:bg-slate-100"
-            >
+            <a className="block rounded-2xl px-4 py-3 text-slate-600 hover:bg-slate-100">
               Invoices
             </a>
 
-            <a
-              href="/quotes"
-              className="block rounded-2xl px-4 py-3 text-slate-600 hover:bg-slate-100"
-            >
+            <a className="block rounded-2xl px-4 py-3 text-slate-600 hover:bg-slate-100">
               Quotes
             </a>
 
-            <a
-              href="/assistant"
-              className="block rounded-2xl px-4 py-3 text-slate-600 hover:bg-slate-100"
-            >
+            <a className="block rounded-2xl px-4 py-3 text-slate-600 hover:bg-slate-100">
               Assistant
             </a>
           </nav>
@@ -178,12 +153,9 @@ export default async function HomePage() {
                 </p>
               </div>
 
-              <a
-                href="/capture"
-                className="rounded-2xl bg-white px-5 py-3 text-center text-sm font-semibold text-slate-950 shadow-sm hover:bg-blue-50"
-              >
+              <button className="rounded-2xl bg-white px-5 py-3 text-sm font-semibold text-slate-950 shadow-sm hover:bg-blue-50">
                 + Speak job note
-              </a>
+              </button>
             </div>
           </header>
 
@@ -240,12 +212,9 @@ export default async function HomePage() {
                       </p>
                     </div>
 
-                    <a
-                      href={actionHref(action)}
-                      className="rounded-xl bg-slate-950 px-4 py-2 text-center text-sm font-semibold text-white hover:bg-slate-800"
-                    >
+                    <button className="rounded-xl bg-slate-950 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-800">
                       Review
-                    </a>
+                    </button>
                   </div>
                 ))}
               </div>
@@ -289,12 +258,9 @@ export default async function HomePage() {
                   Demo flow: speak a job note, create a job record, draft an
                   invoice, and prepare a customer message.
                 </p>
-                <a
-                  href="/capture"
-                  className="mt-5 block w-full rounded-2xl border border-slate-200 px-4 py-3 text-center text-sm font-semibold hover:bg-slate-50"
-                >
+                <button className="mt-5 w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm font-semibold hover:bg-slate-50">
                   Try demo capture
-                </a>
+                </button>
               </section>
             </aside>
           </div>

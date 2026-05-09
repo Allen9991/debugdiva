@@ -160,8 +160,11 @@ export function DesktopToday({
     <div
       style={{
         display: "grid",
-        gridTemplateColumns: "232px 1fr",
+        gridTemplateColumns: "232px minmax(0, 1fr)",
         minHeight: "100vh",
+        width: "100%",
+        maxWidth: "100vw",
+        overflowX: "hidden",
         background: "var(--bg-desktop)",
         color: "var(--ink)",
       }}
@@ -330,7 +333,15 @@ export function DesktopToday({
       </aside>
 
       {/* MAIN */}
-      <main style={{ overflow: "auto", position: "relative" }}>
+      <main
+        style={{
+          overflowX: "hidden",
+          overflowY: "auto",
+          position: "relative",
+          minWidth: 0,
+          width: "100%",
+        }}
+      >
         {/* TOP BAR */}
         <div
           style={{
@@ -972,7 +983,7 @@ function SearchBox() {
   return (
     <div
       style={{
-        width: 280,
+        width: "min(280px, 28vw)",
         height: 36,
         borderRadius: 10,
         background: "#fff",
