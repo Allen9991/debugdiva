@@ -335,7 +335,7 @@ export function DesktopToday({
                       />
                     </svg>
                   </span>
-                  Tell Mahi about a job
+                  Tell Ghostly about a job
                 </Link>
                 <Link
                   href="/invoices"
@@ -399,7 +399,7 @@ export function DesktopToday({
         >
           {/* LEFT */}
           <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
-            {/* Mahi summary */}
+            {/* Ghostly summary */}
             <div
               style={{
                 padding: "16px 18px",
@@ -453,7 +453,7 @@ export function DesktopToday({
             >
               {pendingActions.length === 0 && (
                 <div style={{ padding: "18px 18px", color: "var(--muted)", fontSize: 13.5 }}>
-                  Nothing pending — Mahi is keeping an eye on the day.
+                  Nothing pending - Ghostly is keeping an eye on the day.
                 </div>
               )}
               {pendingActions.slice(0, 5).map((a, i) => {
@@ -562,7 +562,7 @@ export function DesktopToday({
                   position: "relative",
                 }}
               >
-                Between jobs? Talk Mahi through one — he&rsquo;ll write the invoice.
+                Between jobs? Talk Ghostly through one - it can draft the job, quote, or invoice.
               </div>
               <div
                 style={{

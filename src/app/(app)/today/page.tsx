@@ -160,7 +160,7 @@ export default async function TodayPage() {
                 <Mahi size={22} mood="happy" />
               </div>
               <div>
-                <div style={{ fontSize: 18, fontWeight: 800, letterSpacing: -0.4, lineHeight: 1 }}>DebugDiva</div>
+                <div style={{ fontSize: 18, fontWeight: 800, letterSpacing: -0.4, lineHeight: 1 }}>Ghostly</div>
                 <Eyebrow style={{ marginTop: 2 }}>{dateEyebrow}</Eyebrow>
               </div>
             </div>
@@ -216,7 +216,7 @@ export default async function TodayPage() {
                 );
               })}
               {dashboard.pending_actions.length === 0 && (
-                <p style={{ fontSize: 13.5, color: "var(--muted)", margin: "8px 2px" }}>Nothing pending. Mahi is keeping an eye on the day.</p>
+                <p style={{ fontSize: 13.5, color: "var(--muted)", margin: "8px 2px" }}>Nothing pending. Ghostly is keeping an eye on the day.</p>
               )}
             </div>
           </Card>
@@ -224,8 +224,8 @@ export default async function TodayPage() {
           <Card padding={18}>
             <div style={{ marginBottom: 12 }}>
               <Eyebrow>Quick capture</Eyebrow>
-              <div style={{ fontSize: 17, fontWeight: 800, letterSpacing: -0.3, marginTop: 4 }}>Tell Mahi about a job</div>
-              <p style={{ margin: "4px 0 0", fontSize: 13.5, color: "var(--muted)", lineHeight: 1.45 }}>Speak it while it&apos;s fresh. Mahi will draft the invoice.</p>
+              <div style={{ fontSize: 17, fontWeight: 800, letterSpacing: -0.3, marginTop: 4 }}>Tell Ghostly about a job</div>
+              <p style={{ margin: "4px 0 0", fontSize: 13.5, color: "var(--muted)", lineHeight: 1.45 }}>Speak it while it&apos;s fresh. Ghostly can draft the job, quote, or invoice.</p>
             </div>
             <CaptureHub />
           </Card>

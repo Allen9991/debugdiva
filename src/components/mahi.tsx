@@ -39,6 +39,7 @@ export function Mahi({
   const eyeShape = eyesOpen
     ? { rx: 3, ry: happy ? 3.6 : 3 }
     : { rx: 3, ry: 0.5 };
+  const showFedora = true || hardhat;
 
   const colorKey = color.replace("#", "");
   const gradId = `mahi-${visualMood}-${colorKey}`;
@@ -96,6 +97,18 @@ export function Mahi({
 
         <ellipse cx="22" cy="18" rx="6" ry="3.5" fill="#fff" opacity="0.35" />
 
+        {showFedora && (
+          <g>
+            <ellipse cx="32" cy="18" rx="20" ry="3.8" fill="#171923" />
+            <path
+              d="M20 16 C21.5 7.5 26 4 32 4 C38 4 42.5 7.5 44 16 Z"
+              fill="#202636"
+            />
+            <path d="M21 14 H43 V18 H21 Z" fill={resolvedAccent} opacity="0.9" />
+            <ellipse cx="27" cy="10" rx="3.4" ry="1.4" fill="#fff" opacity="0.18" />
+          </g>
+        )}
+
         {happy && (
           <>
             <circle cx="19" cy="36" r="4" fill={`url(#${blushId})`} />
@@ -105,6 +118,20 @@ export function Mahi({
 
         <ellipse cx={24 + eyeShift} cy="29" rx={eyeShape.rx} ry={eyeShape.ry} fill="#0B1220" />
         <ellipse cx={40 + eyeShift} cy="29" rx={eyeShape.rx} ry={eyeShape.ry} fill="#0B1220" />
+
+        {eyesOpen && (
+          <g
+            fill="none"
+            stroke="#0B1220"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
+            <circle cx={24 + eyeShift} cy="29" r="6" />
+            <circle cx={40 + eyeShift} cy="29" r="6" />
+            <path d={`M${30 + eyeShift} 29 H${34 + eyeShift}`} />
+          </g>
+        )}
 
         {eyesOpen && happy && (
           <>
@@ -138,14 +165,6 @@ export function Mahi({
           <ellipse cx="32" cy="39" rx="2.4" ry="1.6" fill="#0B1220" />
         )}
 
-        {hardhat && (
-          <g>
-            <ellipse cx="32" cy="14" rx="16" ry="3" fill="#1a1a1a" />
-            <path d="M16 14 C16 7 22 3 32 3 C42 3 48 7 48 14 Z" fill={resolvedAccent} />
-            <rect x="29" y="3" width="6" height="11" fill="rgba(0,0,0,0.18)" />
-            <ellipse cx="22" cy="10" rx="3" ry="1.5" fill="#fff" opacity="0.35" />
-          </g>
-        )}
       </svg>
 
       {showQ && (

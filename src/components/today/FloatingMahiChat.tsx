@@ -49,7 +49,7 @@ export function FloatingMahiChat() {
       console.log("[FloatingMahiChat] received response:", payload);
 
       if (!res.ok) {
-        const errMsg = payload?.error ?? "Mahi couldn't reply (" + res.status + ").";
+        const errMsg = payload?.error ?? "Ghostly couldn't reply (" + res.status + ").";
         setMessages((prev) => [
           ...prev,
           { who: "mahi", text: "Sorry - " + errMsg + " Try again in a sec." },
@@ -87,7 +87,7 @@ export function FloatingMahiChat() {
           console.log("[FloatingMahiChat] reopened");
           setOpen(true);
         }}
-        aria-label="Open Mahi chat"
+        aria-label="Open Ghostly chat"
         style={{
           position: "fixed",
           right: 28,
@@ -137,7 +137,7 @@ export function FloatingMahiChat() {
       >
         <Mahi size={32} mood="happy" />
         <div style={{ flex: 1 }}>
-          <div style={{ fontSize: 13.5, fontWeight: 700 }}>Mahi</div>
+          <div style={{ fontSize: 13.5, fontWeight: 700 }}>Ghostly</div>
           <div style={{ fontSize: 11, opacity: 0.85 }}>
             {sending ? "Thinking..." : "Online - ready to help"}
           </div>
@@ -184,7 +184,7 @@ export function FloatingMahiChat() {
 
         {sending && (
           <Bubble who="mahi">
-            <span aria-label="Mahi is typing">
+            <span aria-label="Ghostly is typing">
               <span style={{ opacity: 0.6 }}>...</span>
             </span>
           </Bubble>
@@ -207,7 +207,7 @@ export function FloatingMahiChat() {
           <input
             value={draft}
             onChange={(e) => setDraft(e.target.value)}
-            placeholder="Ask Mahi..."
+            placeholder="Ask Ghostly..."
             disabled={sending}
             style={{
               flex: 1,

@@ -71,7 +71,7 @@ function CaptureAside() {
         <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
           <Mahi size={52} mood="listening" hardhat />
           <div>
-            <Eyebrow>Mahi is listening</Eyebrow>
+            <Eyebrow>Ghostly is listening</Eyebrow>
             <h2 style={{ margin: "6px 0 0", fontSize: 20, fontWeight: 800, letterSpacing: -0.4 }}>
               Designed for messy notes
             </h2>

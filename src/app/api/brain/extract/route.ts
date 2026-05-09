@@ -172,7 +172,7 @@ async function extractWithOpenAi(transcript: string) {
 }
 
 export async function POST(request: Request) {
-  let body: { capture_id?: string; type?: string };
+  let body: { capture_id?: string; type?: string; transcript?: string };
   try {
     body = await request.json();
   } catch {
@@ -186,7 +186,8 @@ export async function POST(request: Request) {
 
   const captureType = body.type === "receipt" ? "receipt" : "voice";
   const capture = captureMemory.get(captureId);
-  if (!capture) {
+  const rawText = capture?.raw_text ?? body.transcript?.trim() ?? "";
+  if (!capture && !rawText) {
     return NextResponse.json({ error: "Capture not found. Record a new voice note first." }, { status: 404 });
   }
 
@@ -197,7 +198,7 @@ export async function POST(request: Request) {
     );
   }
 
-  if (!capture.raw_text) {
+  if (!rawText) {
     return NextResponse.json({ error: "Capture has no transcript." }, { status: 400 });
   }
 
@@ -206,24 +207,24 @@ export async function POST(request: Request) {
 
   if (getEnvVar("OPENAI_API_KEY")) {
     try {
-      extracted = await extractWithOpenAi(capture.raw_text);
+      extracted = await extractWithOpenAi(rawText);
       extraction_provider = "openai";
     } catch (error) {
       console.error("[extract] OpenAI extraction failed, using local parser:", error);
-      extracted = fallbackExtractVoice(capture.raw_text);
+      extracted = fallbackExtractVoice(rawText);
       extraction_provider = "local-parser";
     }
   } else if (getEnvVar("ANTHROPIC_API_KEY")) {
     try {
-      extracted = await extractWithClaude(capture.raw_text);
+      extracted = await extractWithClaude(rawText);
       extraction_provider = "claude";
     } catch (error) {
       console.error("[extract] Claude extraction failed, using local parser:", error);
-      extracted = fallbackExtractVoice(capture.raw_text);
+      extracted = fallbackExtractVoice(rawText);
       extraction_provider = "local-parser";
     }
   } else {
-    extracted = fallbackExtractVoice(capture.raw_text);
+    extracted = fallbackExtractVoice(rawText);
     extraction_provider = "local-parser";
   }
 
@@ -234,7 +235,7 @@ export async function POST(request: Request) {
         ? "Voice capture extracted with AI and ready for review."
         : "Voice capture transcribed. Add OPENAI_API_KEY for real transcription and AI extraction.",
     extracted,
-    transcript: capture.raw_text,
+    transcript: rawText,
     capture_id: captureId,
     extraction_provider,
     processed_at: new Date().toISOString(),

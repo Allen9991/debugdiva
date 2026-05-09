@@ -13,7 +13,7 @@ import {
 import type { ExtractVoiceResponse } from "@/lib/claude/schemas";
 
 type Phase = "idle" | "recording" | "uploading" | "extracting" | "forgiveness" | "preview";
-type BusyAction = "demo" | "job" | "invoice";
+type BusyAction = "demo" | "job" | "invoice" | "quote";
 
 type ExtractApiResponse = {
   status?: string;
@@ -71,11 +71,11 @@ export function GhostlyCapture() {
     setBusyAction(null);
   }
 
-  async function extractCapture(captureId: string) {
+  async function extractCapture(captureId: string, rawTranscript?: string) {
     const extractRes = await fetch("/api/brain/extract", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ capture_id: captureId, type: "voice" }),
+      body: JSON.stringify({ capture_id: captureId, type: "voice", transcript: rawTranscript }),
     });
     const extractPayload = (await extractRes.json()) as ExtractApiResponse;
 
@@ -94,7 +94,7 @@ export function GhostlyCapture() {
       const demoTranscript =
         "Finished leak repair for Sarah at 25 Queen Street. Two hours labour. Used sealant, pipe fitting, replacement valve. Materials around $75. Job tested and complete.";
       setTranscript(demoTranscript);
-      const extractedResult = await extractCapture("demo-capture-" + Date.now());
+      const extractedResult = await extractCapture("demo-capture-" + Date.now(), demoTranscript);
       setExtracted(extractedResult);
       setPhase(extractedResult.confidence < CONFIDENCE_THRESHOLD ? "forgiveness" : "preview");
     } catch (err) {
@@ -105,12 +105,11 @@ export function GhostlyCapture() {
     }
   }
 
-  async function createJobFromExtraction() {
-    if (!extracted) return;
-    setBusyAction("job");
-    setError(null);
-    try {
-      const res = await fetch("/api/jobs", {
+  async function createJobRequest(status: "completed" | "new" = "completed") {
+    if (!extracted) {
+      throw new Error("Capture is not ready yet.");
+    }
+    const res = await fetch("/api/jobs", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -121,14 +120,22 @@ export function GhostlyCapture() {
           materials: extracted.materials
             .filter((material) => material.cost != null)
             .map((material) => ({ name: material.name, cost: material.cost ?? 0 })),
-          status: "completed",
+          status,
         }),
       });
-      const payload = (await res.json()) as { job?: { id: string }; error?: string };
-      if (!res.ok || !payload.job?.id) {
-        throw new Error(payload.error ?? "Could not create job.");
-      }
-      window.location.href = "/jobs/" + payload.job.id;
+    const payload = (await res.json()) as { job?: { id: string }; error?: string };
+    if (!res.ok || !payload.job?.id) {
+      throw new Error(payload.error ?? "Could not create job.");
+    }
+    return payload.job;
+  }
+
+  async function createJobFromExtraction() {
+    setBusyAction("job");
+    setError(null);
+    try {
+      const job = await createJobRequest("completed");
+      window.location.href = "/jobs/" + job.id;
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not create job.");
     } finally {
@@ -141,29 +148,12 @@ export function GhostlyCapture() {
     setBusyAction("invoice");
     setError(null);
     try {
-      const jobRes = await fetch("/api/jobs", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          client_name: extracted.client_name ?? "Unknown client",
-          location: extracted.job_location ?? "Address TBC",
-          description: extracted.job_description ?? "Captured job note",
-          labour_hours: extracted.labour_hours ?? 0,
-          materials: extracted.materials
-            .filter((material) => material.cost != null)
-            .map((material) => ({ name: material.name, cost: material.cost ?? 0 })),
-          status: "completed",
-        }),
-      });
-      const jobPayload = (await jobRes.json()) as { job?: { id: string }; error?: string };
-      if (!jobRes.ok || !jobPayload.job?.id) {
-        throw new Error(jobPayload.error ?? "Could not create job.");
-      }
+      const job = await createJobRequest("completed");
 
       const invoiceRes = await fetch("/api/invoices", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ job_id: jobPayload.job.id }),
+        body: JSON.stringify({ job_id: job.id }),
       });
       const invoicePayload = (await invoiceRes.json()) as {
         invoice?: { id: string };
@@ -175,6 +165,31 @@ export function GhostlyCapture() {
       window.location.href = "/invoices/" + invoicePayload.invoice.id;
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not create invoice.");
+    } finally {
+      setBusyAction(null);
+    }
+  }
+
+  async function createQuoteFromExtraction() {
+    setBusyAction("quote");
+    setError(null);
+    try {
+      const job = await createJobRequest("new");
+      const quoteRes = await fetch("/api/quotes", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ job_id: job.id }),
+      });
+      const quotePayload = (await quoteRes.json()) as {
+        quote?: { id: string };
+        error?: string;
+      };
+      if (!quoteRes.ok || !quotePayload.quote?.id) {
+        throw new Error(quotePayload.error ?? "Could not create quote.");
+      }
+      window.location.href = "/quotes";
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not create quote.");
     } finally {
       setBusyAction(null);
     }
@@ -323,6 +338,7 @@ export function GhostlyCapture() {
           busyAction={busyAction}
           onCreateJob={createJobFromExtraction}
           onCreateInvoice={createInvoiceFromExtraction}
+          onCreateQuote={createQuoteFromExtraction}
           onReset={reset}
         />
       )}
@@ -353,7 +369,7 @@ function IdleView({
       >
         <Mahi size={88} mood="happy" />
         <div style={{ textAlign: "center" }}>
-          <Eyebrow>Voice to invoice</Eyebrow>
+          <Eyebrow>Voice to job, quote, or invoice</Eyebrow>
           <h2
             style={{
               margin: "6px 0 4px",
@@ -854,6 +870,7 @@ function PreviewView({
   busyAction,
   onCreateJob,
   onCreateInvoice,
+  onCreateQuote,
   onReset,
 }: {
   extracted: ExtractVoiceResponse;
@@ -862,6 +879,7 @@ function PreviewView({
   busyAction: BusyAction | null;
   onCreateJob: () => void;
   onCreateInvoice: () => void;
+  onCreateQuote: () => void;
   onReset: () => void;
 }) {
   const confidencePct = Math.round(extracted.confidence * 100);
@@ -1028,6 +1046,26 @@ function PreviewView({
           }}
         >
           {busyAction === "invoice" ? "Drafting..." : "Create invoice"}
+        </button>
+        <button
+          type="button"
+          onClick={onCreateQuote}
+          disabled={busyAction !== null}
+          style={{
+            flex: 1,
+            height: 52,
+            borderRadius: 14,
+            border: "none",
+            background: "#1A5155",
+            color: "#fff",
+            fontSize: 15,
+            fontWeight: 600,
+            cursor: busyAction ? "not-allowed" : "pointer",
+            opacity: busyAction ? 0.7 : 1,
+            boxShadow: "var(--shadow-elevated)",
+          }}
+        >
+          {busyAction === "quote" ? "Drafting..." : "Create quote"}
         </button>
         <Link
           href="/jobs"

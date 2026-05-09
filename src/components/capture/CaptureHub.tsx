@@ -259,7 +259,7 @@ export function CaptureHub() {
                 color: "#047857",
               }}
             >
-              Mahi extracted
+              Ghostly extracted
             </div>
             <div
               style={{

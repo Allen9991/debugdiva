@@ -32,7 +32,7 @@ function titleFor(pathname: string): string {
     if (entry.match.test(pathname)) return entry.label;
   }
   if (pathname === "/" || pathname === "") return "Today";
-  return "DebugDiva";
+  return "Ghostly";
 }
 
 function timeAgo(iso: string) {

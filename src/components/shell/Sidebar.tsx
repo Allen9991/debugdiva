@@ -144,7 +144,7 @@ export function Sidebar() {
           <Mahi size={22} mood="happy" accent="var(--mahi-yellow, #FFD13F)" />
         </span>
         <div>
-          <div style={{ fontSize: 16, fontWeight: 800, letterSpacing: -0.3 }}>DebugDiva</div>
+          <div style={{ fontSize: 16, fontWeight: 800, letterSpacing: -0.3 }}>Ghostly</div>
           <div style={{ fontSize: 10, opacity: 0.55, fontWeight: 600, letterSpacing: 0.6, textTransform: "uppercase" }}>
             Tradie admin
           </div>
@@ -215,7 +215,7 @@ export function Sidebar() {
       >
         <Mahi size={36} mood="happy" />
         <div style={{ flex: 1, fontSize: 11.5, lineHeight: 1.4, opacity: 0.85 }}>
-          <b style={{ color: "#fff" }}>Mahi</b> learned your van rate this week.
+          <b style={{ color: "#fff" }}>Ghostly</b> learned your van rate this week.
         </div>
       </div>
 
