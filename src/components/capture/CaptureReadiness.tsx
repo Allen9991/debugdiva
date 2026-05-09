@@ -64,7 +64,8 @@ export function CaptureReadiness() {
     const cameraReady =
       typeof window !== "undefined" &&
       typeof File !== "undefined" &&
-      typeof FormData !== "undefined";
+      typeof FormData !== "undefined" &&
+      !!navigator.mediaDevices?.getUserMedia;
     const secureReady =
       typeof window !== "undefined" &&
       (window.isSecureContext || window.location.hostname === "localhost");
@@ -80,8 +81,8 @@ export function CaptureReadiness() {
       {
         label: "Camera Upload",
         detail: cameraReady
-          ? "File upload and camera capture inputs are available."
-          : "Camera capture may need a different mobile browser.",
+          ? "Live camera capture and file upload are available."
+          : "Use HTTPS or localhost in a browser with camera permissions.",
         status: cameraReady ? "ready" : "warning",
       },
       {

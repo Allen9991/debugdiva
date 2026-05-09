@@ -244,8 +244,8 @@ export function VoiceRecorder({ onComplete }: VoiceRecorderProps) {
   }
 
   return (
-    <section className="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm">
-      <div className="space-y-5">
+    <section className="capture-card rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm">
+      <div className="capture-panel-body space-y-5">
         <div className="space-y-2 text-center">
           <p className="text-sm font-semibold uppercase tracking-[0.24em] text-slate-500">
             Voice to Invoice
@@ -271,7 +271,7 @@ export function VoiceRecorder({ onComplete }: VoiceRecorderProps) {
             onClick={handlePrimaryAction}
             disabled={isUploading}
             className={cn(
-              "min-h-36 min-w-36 rounded-full px-8 py-8 text-lg font-semibold text-white shadow-lg transition-transform duration-200",
+              "capture-record-button min-h-36 min-w-36 rounded-full px-8 py-8 text-lg font-semibold text-white shadow-lg transition-transform duration-200",
               isRecording
                 ? "bg-rose-500 hover:scale-[1.01]"
                 : "bg-slate-950 hover:scale-[1.01]",
@@ -303,28 +303,28 @@ export function VoiceRecorder({ onComplete }: VoiceRecorderProps) {
           </div>
         ) : null}
 
-        <div className="rounded-2xl bg-slate-50 p-4">
-          <div className="flex items-center justify-between text-sm text-slate-600">
+        <div className="capture-metrics rounded-2xl bg-slate-50 p-4">
+          <div className="capture-row flex items-center justify-between text-sm text-slate-600">
             <span>Duration</span>
             <span>{formatDuration(durationMs)}</span>
           </div>
 
           {confidence !== null ? (
-            <div className="mt-2 flex items-center justify-between text-sm text-slate-600">
+            <div className="capture-row mt-2 flex items-center justify-between text-sm text-slate-600">
               <span>Confidence</span>
               <span>{Math.round(confidence * 100)}%</span>
             </div>
           ) : null}
 
           {captureId ? (
-            <div className="mt-2 flex items-center justify-between gap-4 text-sm text-slate-600">
+            <div className="capture-row mt-2 flex items-center justify-between gap-4 text-sm text-slate-600">
               <span>Capture ID</span>
               <span className="truncate text-right">{captureId}</span>
             </div>
           ) : null}
 
           {retryCount > 0 ? (
-            <div className="mt-2 flex items-center justify-between gap-4 text-sm text-slate-600">
+            <div className="capture-row mt-2 flex items-center justify-between gap-4 text-sm text-slate-600">
               <span>Retries</span>
               <span>{retryCount}</span>
             </div>
@@ -332,7 +332,7 @@ export function VoiceRecorder({ onComplete }: VoiceRecorderProps) {
         </div>
 
         {transcript ? (
-          <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4">
+          <div className="capture-result capture-success rounded-2xl border border-emerald-200 bg-emerald-50 p-4">
             <p className="text-xs font-semibold uppercase tracking-[0.2em] text-emerald-700">
               Transcript
             </p>

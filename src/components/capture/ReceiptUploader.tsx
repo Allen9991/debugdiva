@@ -24,9 +24,9 @@ export function ReceiptUploader({ onComplete }: ReceiptUploaderProps) {
   const [uploadedImageUrl, setUploadedImageUrl] = useState<string | null>(null);
   const [dragActive, setDragActive] = useState(false);
   const [retryCount, setRetryCount] = useState(0);
+  const [cameraOpen, setCameraOpen] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement | null>(null);
-  const cameraInputRef = useRef<HTMLInputElement | null>(null);
   const previewUrlRef = useRef<string | null>(null);
 
   const statusLabel = useMemo(() => {
@@ -131,8 +131,8 @@ export function ReceiptUploader({ onComplete }: ReceiptUploaderProps) {
   }
 
   return (
-    <section className="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm">
-      <div className="space-y-5">
+    <section className="capture-card rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm">
+      <div className="capture-panel-body space-y-5">
         <div className="space-y-2 text-center">
           <p className="text-sm font-semibold uppercase tracking-[0.24em] text-slate-500">
             Receipt Scanner
@@ -155,18 +155,20 @@ export function ReceiptUploader({ onComplete }: ReceiptUploaderProps) {
           type="file"
           accept="image/jpeg,image/png"
           className="hidden"
+          style={{ display: "none" }}
           disabled={isUploading}
           onChange={handleInputChange}
         />
         <CameraCapture
-          ref={cameraInputRef}
+          open={cameraOpen}
           disabled={isUploading}
-          onChange={handleInputChange}
+          onCapture={(file) => void handleFile(file)}
+          onClose={() => setCameraOpen(false)}
         />
 
         <div
           className={cn(
-            "rounded-[1.75rem] border-2 border-dashed p-5 transition-colors",
+            "capture-dropzone rounded-[1.75rem] border-2 border-dashed p-5 transition-colors",
             dragActive ? "border-emerald-500 bg-emerald-50" : "border-slate-200 bg-slate-50",
           )}
           onDragOver={(event) => {
@@ -184,10 +186,10 @@ export function ReceiptUploader({ onComplete }: ReceiptUploaderProps) {
             <img
               src={previewUrl}
               alt="Receipt preview"
-              className="h-56 w-full rounded-2xl object-cover"
+              className="capture-preview h-56 w-full rounded-2xl object-cover"
             />
           ) : (
-            <div className="flex h-56 items-center justify-center rounded-2xl bg-white text-center">
+            <div className="capture-placeholder flex h-56 items-center justify-center rounded-2xl bg-white text-center">
               <p className="max-w-xs text-sm leading-6 text-slate-500">
                 Drag a receipt image here, choose from files, or open the camera.
               </p>
@@ -195,7 +197,7 @@ export function ReceiptUploader({ onComplete }: ReceiptUploaderProps) {
           )}
         </div>
 
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+        <div className="capture-action-grid grid grid-cols-1 gap-3 sm:grid-cols-2">
           <Button
             type="button"
             disabled={isUploading}
@@ -207,8 +209,8 @@ export function ReceiptUploader({ onComplete }: ReceiptUploaderProps) {
           <Button
             type="button"
             disabled={isUploading}
-            onClick={() => cameraInputRef.current?.click()}
-            className="min-h-14 rounded-2xl bg-emerald-600 px-6 py-4 text-base font-semibold text-white"
+            onClick={() => setCameraOpen(true)}
+            className="capture-secondary-button min-h-14 rounded-2xl bg-emerald-600 px-6 py-4 text-base font-semibold text-white"
           >
             Open Camera
           </Button>
@@ -219,7 +221,7 @@ export function ReceiptUploader({ onComplete }: ReceiptUploaderProps) {
             {errorMessage ? (
               <Button
                 type="button"
-                onClick={() => cameraInputRef.current?.click()}
+                onClick={() => setCameraOpen(true)}
                 className="rounded-xl bg-emerald-600 px-5 py-3 text-sm font-semibold text-white"
               >
                 Try Camera Again
@@ -236,21 +238,21 @@ export function ReceiptUploader({ onComplete }: ReceiptUploaderProps) {
         ) : null}
 
         {(captureId || uploadedImageUrl) && !errorMessage ? (
-          <div className="rounded-2xl bg-slate-50 p-4 text-sm text-slate-600">
+          <div className="capture-metrics rounded-2xl bg-slate-50 p-4 text-sm text-slate-600">
             {captureId ? (
-              <div className="flex items-center justify-between gap-4">
+              <div className="capture-row flex items-center justify-between gap-4">
                 <span>Capture ID</span>
                 <span className="truncate text-right">{captureId}</span>
               </div>
             ) : null}
             {uploadedImageUrl ? (
-              <div className="mt-2 flex items-center justify-between gap-4">
+              <div className="capture-row mt-2 flex items-center justify-between gap-4">
                 <span>Image URL</span>
                 <span className="truncate text-right">{uploadedImageUrl}</span>
               </div>
             ) : null}
             {retryCount > 0 ? (
-              <div className="mt-2 flex items-center justify-between gap-4">
+              <div className="capture-row mt-2 flex items-center justify-between gap-4">
                 <span>Retries</span>
                 <span>{retryCount}</span>
               </div>
@@ -258,7 +260,7 @@ export function ReceiptUploader({ onComplete }: ReceiptUploaderProps) {
           </div>
         ) : null}
 
-        <p className="text-center text-xs leading-5 text-slate-500">
+        <p className="capture-help text-center text-xs leading-5 text-slate-500">
           Best on mobile: keep the receipt flat, fill the frame, and avoid harsh glare.
         </p>
       </div>
