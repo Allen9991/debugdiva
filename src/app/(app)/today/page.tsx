@@ -1,6 +1,14 @@
 import { headers } from "next/headers";
-import { GhostSummary } from "@/components/brain/GhostSummary";
+import Link from "next/link";
+import { MahiSummary } from "@/components/brain/MahiSummary";
 import { CaptureHub } from "@/components/capture/CaptureHub";
+import { Mahi } from "@/components/mahi";
+import { Card, Eyebrow, Pill } from "@/components/ui/primitives";
+import {
+  DesktopToday,
+  type DesktopJob,
+  type DesktopPendingAction,
+} from "@/components/today/DesktopToday";
 
 type Priority = "high" | "medium" | "low";
 
@@ -21,36 +29,45 @@ type DashboardData = {
   };
 };
 
-async function getDashboardData(): Promise<DashboardData> {
+async function getBaseUrl() {
   const headerStore = await headers();
   const forwardedHost = headerStore.get("x-forwarded-host");
   const host = forwardedHost ?? headerStore.get("host");
   const protocol = headerStore.get("x-forwarded-proto") ?? "https";
-  const baseUrl =
+  return (
     process.env.NEXT_PUBLIC_SITE_URL ??
-    (host ? `${protocol}://${host}` : "http://localhost:3000");
+    (host ? `${protocol}://${host}` : "http://localhost:3000")
+  );
+}
 
+async function getDashboardData(baseUrl: string): Promise<DashboardData> {
   const response = await fetch(`${baseUrl}/api/dashboard/today`, {
     cache: "no-store",
   });
-
-  if (!response.ok) {
-    throw new Error("Failed to load dashboard data");
-  }
-
+  if (!response.ok) throw new Error("Failed to load dashboard data");
   return response.json();
 }
 
-function priorityStyles(priority: Priority) {
-  if (priority === "high") {
-    return "bg-red-50 text-red-700 border-red-200";
+async function getJobs(baseUrl: string): Promise<DesktopJob[]> {
+  try {
+    const res = await fetch(`${baseUrl}/api/jobs`, { cache: "no-store" });
+    if (!res.ok) return [];
+    const data = (await res.json()) as { jobs: DesktopJob[] };
+    return data.jobs ?? [];
+  } catch {
+    return [];
   }
+}
 
-  if (priority === "medium") {
-    return "bg-amber-50 text-amber-700 border-amber-200";
+async function getBrainSummary(baseUrl: string): Promise<string | null> {
+  try {
+    const res = await fetch(`${baseUrl}/api/brain/summary`, { cache: "no-store" });
+    if (!res.ok) return null;
+    const data = (await res.json()) as { summary?: string };
+    return data.summary ?? null;
+  } catch {
+    return null;
   }
-
-  return "bg-emerald-50 text-emerald-700 border-emerald-200";
 }
 
 function actionLabel(type: PendingAction["type"]) {
@@ -60,234 +77,686 @@ function actionLabel(type: PendingAction["type"]) {
   return "Missing info";
 }
 
+function actionTone(priority: Priority): "amber" | "soft" | "emerald" {
+  if (priority === "high") return "amber";
+  if (priority === "medium") return "soft";
+  return "emerald";
+}
+
+function formatDateEyebrow(date = new Date()) {
+  return date
+    .toLocaleDateString("en-NZ", {
+      weekday: "long",
+      day: "numeric",
+      month: "short",
+    })
+    .toUpperCase();
+}
+
 export default async function TodayPage() {
-  const dashboard = await getDashboardData();
+  const baseUrl = await getBaseUrl();
+  const [dashboard, jobs, brainSummary] = await Promise.all([
+    getDashboardData(baseUrl),
+    getJobs(baseUrl),
+    getBrainSummary(baseUrl),
+  ]);
+
+  const outstandingTotal = dashboard.stats.unpaid_invoices * 280;
+  const cashflowToday = 0;
 
   const stats = [
-    {
-      label: "Jobs today",
-      value: dashboard.stats.jobs_today,
-      helper: "Work captured today",
-    },
-    {
-      label: "Unpaid invoices",
-      value: dashboard.stats.unpaid_invoices,
-      helper: "Needs payment follow-up",
-    },
-    {
-      label: "Quotes pending",
-      value: dashboard.stats.quotes_pending,
-      helper: "Waiting on client replies",
-    },
-    {
-      label: "Receipts unlinked",
-      value: dashboard.stats.receipts_unlinked,
-      helper: "Needs attaching to jobs",
-    },
+    { label: "Jobs", value: dashboard.stats.jobs_today },
+    { label: "Drafts", value: dashboard.stats.unpaid_invoices },
+    { label: "Quotes", value: dashboard.stats.quotes_pending },
+    { label: "Receipts", value: dashboard.stats.receipts_unlinked },
   ];
 
+  const dateEyebrow = formatDateEyebrow();
+
+  const desktopActions: DesktopPendingAction[] = dashboard.pending_actions;
+
   return (
-    <main className="min-h-screen bg-slate-50 text-slate-950">
-      <div className="mx-auto flex min-h-screen max-w-7xl flex-col gap-6 px-4 py-6 md:px-8 lg:flex-row">
-        <aside className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm lg:w-64">
-          <div className="mb-8">
-            <p className="text-2xl font-bold tracking-tight">Admin Ghost</p>
-            <p className="mt-1 text-sm text-slate-500">
-              AI admin for busy tradies
-            </p>
-          </div>
+    <>
+      <div className="gh-desktop-only">
+        <DesktopToday
+          stats={dashboard.stats}
+          pendingActions={desktopActions}
+          jobs={jobs}
+          brainSummary={brainSummary}
+          outstandingTotal={outstandingTotal}
+          cashflowToday={cashflowToday}
+        />
+      </div>
 
-          <nav className="space-y-2 text-sm font-medium">
-            <a
-              href="/today"
-              className="block rounded-2xl bg-slate-950 px-4 py-3 text-white"
+    <main
+      className="gh-mobile-only"
+      style={{
+        minHeight: "100vh",
+        background: "var(--bg)",
+        color: "var(--ink)",
+        paddingBottom: 110,
+      }}
+    >
+      <div
+        style={{
+          maxWidth: 720,
+          margin: "0 auto",
+          padding: "20px 16px",
+          display: "flex",
+          flexDirection: "column",
+          gap: 14,
+        }}
+      >
+        {/* Top bar */}
+        <header
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            paddingBottom: 4,
+          }}
+        >
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <div
+              style={{
+                width: 32,
+                height: 32,
+                borderRadius: 10,
+                background:
+                  "linear-gradient(135deg, var(--ink) 0%, var(--accent) 200%)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+              }}
             >
-              Today
-            </a>
-            <a
-              href="/capture"
-              className="block rounded-2xl px-4 py-3 text-slate-600 hover:bg-slate-100"
-            >
-              Capture
-            </a>
-            <a
-              href="/jobs"
-              className="block rounded-2xl px-4 py-3 text-slate-600 hover:bg-slate-100"
-            >
-              Jobs
-            </a>
-            <a
-              href="/invoices"
-              className="block rounded-2xl px-4 py-3 text-slate-600 hover:bg-slate-100"
-            >
-              Invoices
-            </a>
-            <a
-              href="/quotes"
-              className="block rounded-2xl px-4 py-3 text-slate-600 hover:bg-slate-100"
-            >
-              Quotes
-            </a>
-            <a
-              href="/assistant"
-              className="block rounded-2xl px-4 py-3 text-slate-600 hover:bg-slate-100"
-            >
-              Assistant
-            </a>
-          </nav>
-
-          <div className="mt-8 rounded-2xl bg-blue-50 p-4">
-            <p className="text-sm font-semibold text-blue-950">Demo business</p>
-            <p className="mt-1 text-sm text-blue-700">Ghost Plumbing</p>
-            <p className="mt-3 text-xs leading-5 text-blue-700">
-              Built for a NZ plumber who wants to speak job notes in the van and
-              get admin ready before getting home.
-            </p>
-          </div>
-        </aside>
-
-        <section className="flex-1 space-y-6">
-          <GhostSummary />
-
-          <header className="rounded-3xl bg-gradient-to-br from-slate-950 to-blue-950 p-6 text-white shadow-sm md:p-8">
-            <div className="flex flex-col gap-6 md:flex-row md:items-center md:justify-between">
-              <div>
-                <p className="text-sm font-medium text-blue-200">
-                  Today's admin brief
-                </p>
-                <h1 className="mt-2 text-3xl font-bold tracking-tight md:text-4xl">
-                  Morning, Mike. Your admin is under control.
-                </h1>
-                <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-200 md:text-base">
-                  Admin Ghost found {dashboard.pending_actions.length} things
-                  needing attention. Start with Sarah's draft invoice, then
-                  follow up Emma's overdue payment.
-                </p>
-              </div>
-
-              <a
-                href="/capture"
-                className="rounded-2xl bg-white px-5 py-3 text-center text-sm font-semibold text-slate-950 shadow-sm hover:bg-blue-50"
-              >
-                Speak job note
-              </a>
+              <Mahi size={22} mood="happy" />
             </div>
-          </header>
-
-          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-            {stats.map((stat) => (
-              <article
-                key={stat.label}
-                className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm"
+            <div>
+              <div
+                style={{
+                  fontSize: 18,
+                  fontWeight: 800,
+                  letterSpacing: -0.4,
+                  lineHeight: 1,
+                }}
               >
-                <p className="text-sm font-medium text-slate-500">
+                Ghostly
+              </div>
+              <Eyebrow style={{ marginTop: 2 }}>{dateEyebrow}</Eyebrow>
+            </div>
+          </div>
+          <div
+            style={{
+              width: 36,
+              height: 36,
+              borderRadius: "50%",
+              background: "var(--ink)",
+              color: "#fff",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              fontSize: 13,
+              fontWeight: 700,
+            }}
+          >
+            MT
+          </div>
+        </header>
+
+        {/* Hero gradient card */}
+        <section
+          style={{
+            position: "relative",
+            overflow: "hidden",
+            borderRadius: "var(--radius-hero)",
+            padding: "24px 22px 22px",
+            background:
+              "linear-gradient(160deg, var(--accent) 0%, #C8413B 125%)",
+            boxShadow: "var(--shadow-hero)",
+            color: "#fff",
+          }}
+        >
+          {/* decorative blobs */}
+          <div
+            aria-hidden
+            style={{
+              position: "absolute",
+              top: -40,
+              right: -30,
+              width: 180,
+              height: 180,
+              borderRadius: "50%",
+              background: "rgba(255,255,255,0.13)",
+            }}
+          />
+          <div
+            aria-hidden
+            style={{
+              position: "absolute",
+              bottom: -50,
+              right: 30,
+              width: 140,
+              height: 140,
+              borderRadius: "50%",
+              background: "rgba(255,255,255,0.08)",
+            }}
+          />
+
+          {/* Mahi peeking */}
+          <div
+            style={{
+              position: "absolute",
+              top: 12,
+              right: 14,
+              transform: "rotate(6deg)",
+            }}
+          >
+            <Mahi size={88} mood="cheer" hardhat />
+          </div>
+
+          <div style={{ position: "relative", maxWidth: "60%" }}>
+            <div
+              style={{
+                fontSize: 11,
+                fontWeight: 700,
+                letterSpacing: 1.4,
+                textTransform: "uppercase",
+                color: "rgba(255,255,255,0.78)",
+              }}
+            >
+              Kia ora, Mike
+            </div>
+            <h1
+              style={{
+                margin: "8px 0 6px",
+                fontSize: 30,
+                fontWeight: 800,
+                letterSpacing: -0.7,
+                lineHeight: 1.08,
+              }}
+            >
+              Your admin is under control.
+            </h1>
+            <p
+              style={{
+                margin: 0,
+                fontSize: 13.5,
+                fontWeight: 500,
+                lineHeight: 1.45,
+                color: "rgba(255,255,255,0.88)",
+              }}
+            >
+              {dashboard.pending_actions.length} thing
+              {dashboard.pending_actions.length === 1 ? "" : "s"} need attention
+              today.
+            </p>
+          </div>
+
+          {/* Frosted-glass stat tile strip */}
+          <div
+            style={{
+              position: "relative",
+              marginTop: 18,
+              display: "grid",
+              gridTemplateColumns: "repeat(4, 1fr)",
+              gap: 8,
+            }}
+          >
+            {stats.map((stat) => (
+              <div
+                key={stat.label}
+                style={{
+                  background: "rgba(255,255,255,0.16)",
+                  border: "1px solid rgba(255,255,255,0.22)",
+                  borderRadius: 14,
+                  padding: "10px 10px 12px",
+                  backdropFilter: "blur(6px)",
+                }}
+              >
+                <div
+                  className="tabular-nums"
+                  style={{ fontSize: 22, fontWeight: 800, lineHeight: 1.05 }}
+                >
+                  {stat.value}
+                </div>
+                <div
+                  style={{
+                    fontSize: 11,
+                    fontWeight: 600,
+                    letterSpacing: 0.3,
+                    color: "rgba(255,255,255,0.85)",
+                    marginTop: 2,
+                  }}
+                >
                   {stat.label}
-                </p>
-                <p className="mt-3 text-3xl font-bold">{stat.value}</p>
-                <p className="mt-2 text-sm text-slate-500">{stat.helper}</p>
-              </article>
+                </div>
+              </div>
             ))}
           </div>
-
-          <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm md:p-6">
-            <div className="mb-5 flex items-center justify-between">
-              <div>
-                <h2 className="text-xl font-bold">Quick capture</h2>
-                <p className="mt-1 text-sm text-slate-500">
-                  Speak the job note while it is fresh, then let Brain Zone
-                  extract the admin details.
-                </p>
-              </div>
-            </div>
-            <CaptureHub />
-          </section>
-
-          <div className="grid gap-6 xl:grid-cols-[1.3fr_0.7fr]">
-            <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm md:p-6">
-              <div className="mb-5 flex items-center justify-between">
-                <div>
-                  <h2 className="text-xl font-bold">Pending actions</h2>
-                  <p className="mt-1 text-sm text-slate-500">
-                    Smart reminders from jobs, invoices, quotes, and captures.
-                  </p>
-                </div>
-                <span className="rounded-full bg-slate-100 px-3 py-1 text-sm font-medium text-slate-600">
-                  {dashboard.pending_actions.length} open
-                </span>
-              </div>
-
-              <div className="space-y-3">
-                {dashboard.pending_actions.map((action, index) => (
-                  <div
-                    key={`${action.label}-${index}`}
-                    className="flex flex-col gap-3 rounded-2xl border border-slate-200 p-4 md:flex-row md:items-center md:justify-between"
-                  >
-                    <div>
-                      <div className="flex flex-wrap items-center gap-2">
-                        <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-600">
-                          {actionLabel(action.type)}
-                        </span>
-                        <span
-                          className={`rounded-full border px-3 py-1 text-xs font-semibold ${priorityStyles(
-                            action.priority,
-                          )}`}
-                        >
-                          {action.priority}
-                        </span>
-                      </div>
-                      <p className="mt-3 font-medium text-slate-900">
-                        {action.label}
-                      </p>
-                    </div>
-
-                    <a
-                      href={
-                        action.job_id ? `/jobs/${action.job_id}` : "/capture"
-                      }
-                      className="rounded-xl bg-slate-950 px-4 py-2 text-center text-sm font-semibold text-white hover:bg-slate-800"
-                    >
-                      Review
-                    </a>
-                  </div>
-                ))}
-              </div>
-            </section>
-
-            <aside className="space-y-6">
-              <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm md:p-6">
-                <h2 className="text-xl font-bold">AI suggestion</h2>
-                <p className="mt-3 text-sm leading-6 text-slate-600">
-                  Sarah's leak repair job is complete and already has a draft
-                  invoice. Send that first because it directly turns completed
-                  work into cash.
-                </p>
-                <a
-                  href="/jobs/33333333-3333-3333-3333-333333333333"
-                  className="mt-5 block w-full rounded-2xl bg-blue-600 px-4 py-3 text-center text-sm font-semibold text-white hover:bg-blue-700"
-                >
-                  Open Sarah's job
-                </a>
-              </section>
-
-              <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm md:p-6">
-                <h2 className="text-xl font-bold">Mental load</h2>
-                <p className="mt-3 text-sm leading-6 text-slate-600">
-                  Admin load is high, but focused. You only need to handle the
-                  top payment and invoice actions today.
-                </p>
-
-                <div className="mt-5 h-3 overflow-hidden rounded-full bg-slate-100">
-                  <div className="h-full w-3/4 rounded-full bg-amber-400" />
-                </div>
-
-                <p className="mt-2 text-sm font-medium text-amber-700">
-                  High, but manageable
-                </p>
-              </section>
-            </aside>
-          </div>
         </section>
+
+        {/* Mahi summary card (client — thinking → happy) */}
+        <MahiSummary />
+
+        {/* Pending actions */}
+        <Card padding={18}>
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              marginBottom: 14,
+            }}
+          >
+            <Eyebrow>Pending actions</Eyebrow>
+            <Pill tone="soft">{dashboard.pending_actions.length} open</Pill>
+          </div>
+
+          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+            {dashboard.pending_actions.map((action, index) => {
+              const tone = actionTone(action.priority);
+              const ctaIsAccent = action.priority === "high";
+              return (
+                <div
+                  key={`${action.label}-${index}`}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 12,
+                    padding: "12px 12px",
+                    border: "1px solid var(--border)",
+                    borderRadius: 14,
+                    background: "var(--surface)",
+                  }}
+                >
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div
+                      style={{
+                        display: "flex",
+                        gap: 6,
+                        flexWrap: "wrap",
+                        marginBottom: 6,
+                      }}
+                    >
+                      <Pill tone="soft">{actionLabel(action.type)}</Pill>
+                      <Pill tone={tone}>{action.priority}</Pill>
+                    </div>
+                    <div
+                      style={{
+                        fontSize: 14,
+                        fontWeight: 600,
+                        color: "var(--ink)",
+                        lineHeight: 1.4,
+                      }}
+                    >
+                      {action.label}
+                    </div>
+                  </div>
+                  <Link
+                    href={action.job_id ? `/jobs/${action.job_id}` : "/capture"}
+                    style={{
+                      flexShrink: 0,
+                      height: 38,
+                      padding: "0 14px",
+                      borderRadius: 10,
+                      display: "inline-flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      fontSize: 13,
+                      fontWeight: 600,
+                      textDecoration: "none",
+                      background: ctaIsAccent ? "var(--accent)" : "var(--ink)",
+                      color: "#fff",
+                      boxShadow: ctaIsAccent
+                        ? "var(--shadow-accent)"
+                        : "var(--shadow-elevated)",
+                    }}
+                  >
+                    Review
+                  </Link>
+                </div>
+              );
+            })}
+            {dashboard.pending_actions.length === 0 && (
+              <p
+                style={{
+                  fontSize: 13.5,
+                  color: "var(--muted)",
+                  margin: "8px 2px",
+                }}
+              >
+                Nothing pending. Mahi is keeping an eye on the day.
+              </p>
+            )}
+          </div>
+        </Card>
+
+        {/* Recent jobs */}
+        <div>
+          <div
+            style={{
+              display: "flex",
+              alignItems: "baseline",
+              justifyContent: "space-between",
+              padding: "4px 4px 8px",
+            }}
+          >
+            <Eyebrow>Recent jobs</Eyebrow>
+            <span style={{ fontSize: 12, color: "var(--faint)", fontWeight: 700 }}>
+              This week
+            </span>
+          </div>
+          <Card padding={0} style={{ overflow: "hidden" }}>
+            {jobs.slice(0, 4).map((job, i) => {
+              const tone =
+                job.status === "paid" || job.status === "invoiced"
+                  ? { p: "emerald" as const, label: "Paid" }
+                  : job.status === "quoted"
+                    ? { p: "soft" as const, label: "Quote" }
+                    : job.status === "completed"
+                      ? { p: "amber" as const, label: "Draft" }
+                      : { p: "soft" as const, label: job.status };
+              const labour = (job.labour_hours ?? 0) * 95;
+              const materials = job.materials.reduce(
+                (s, m) => s + (m.cost ?? 0),
+                0,
+              );
+              const amount = `$${Math.round(labour + materials)}`;
+              return (
+                <div key={job.id}>
+                  {i > 0 && (
+                    <div
+                      style={{
+                        height: 1,
+                        background: "var(--border)",
+                        marginLeft: 18,
+                      }}
+                    />
+                  )}
+                  <Link
+                    href={`/jobs/${job.id}`}
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      padding: "14px 16px",
+                      gap: 12,
+                      textDecoration: "none",
+                      color: "inherit",
+                    }}
+                  >
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 8,
+                        }}
+                      >
+                        <div
+                          style={{
+                            fontSize: 14.5,
+                            fontWeight: 700,
+                            overflow: "hidden",
+                            textOverflow: "ellipsis",
+                            whiteSpace: "nowrap",
+                          }}
+                        >
+                          {job.client_name}
+                        </div>
+                        <Pill tone={tone.p}>{tone.label}</Pill>
+                      </div>
+                      <div
+                        style={{
+                          fontSize: 12,
+                          color: "var(--muted)",
+                          marginTop: 2,
+                          overflow: "hidden",
+                          textOverflow: "ellipsis",
+                          whiteSpace: "nowrap",
+                        }}
+                      >
+                        {job.location ?? ""}
+                      </div>
+                      <div
+                        style={{
+                          fontSize: 12,
+                          color: "var(--faint)",
+                          marginTop: 1,
+                          overflow: "hidden",
+                          textOverflow: "ellipsis",
+                          whiteSpace: "nowrap",
+                        }}
+                      >
+                        {job.description}
+                      </div>
+                    </div>
+                    <div
+                      className="tabular-nums"
+                      style={{
+                        background: "#F1F5F9",
+                        borderRadius: 10,
+                        padding: "8px 10px",
+                        fontSize: 14,
+                        fontWeight: 800,
+                        color: "var(--ink)",
+                      }}
+                    >
+                      {amount}
+                    </div>
+                  </Link>
+                </div>
+              );
+            })}
+            {jobs.length === 0 && (
+              <div
+                style={{
+                  padding: 18,
+                  fontSize: 13.5,
+                  color: "var(--muted)",
+                }}
+              >
+                No jobs yet. Capture your first one.
+              </div>
+            )}
+          </Card>
+        </div>
+
+        {/* Speak job CTA — gradient ink → accent */}
+        <Link
+          href="/capture"
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            gap: 12,
+            height: 62,
+            borderRadius: 18,
+            textDecoration: "none",
+            background:
+              "linear-gradient(135deg, var(--ink) 0%, var(--accent) 200%)",
+            color: "#fff",
+            fontSize: 16,
+            fontWeight: 700,
+            letterSpacing: -0.2,
+            boxShadow: "var(--shadow-elevated)",
+          }}
+        >
+          <span
+            aria-hidden
+            style={{
+              width: 36,
+              height: 36,
+              borderRadius: "50%",
+              background: "var(--accent)",
+              display: "inline-flex",
+              alignItems: "center",
+              justifyContent: "center",
+              boxShadow: "0 0 0 4px rgba(255,94,77,0.2)",
+            }}
+          >
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+              <rect x="9" y="3" width="6" height="12" rx="3" fill="#fff" />
+              <path
+                d="M5 11a7 7 0 0014 0M12 18v3"
+                stroke="#fff"
+                strokeWidth="1.8"
+                strokeLinecap="round"
+              />
+            </svg>
+          </span>
+          Tell Mahi about a job
+        </Link>
       </div>
+
+      {/* Bottom nav (mobile only) */}
+      <nav
+        aria-label="Primary"
+        style={{
+          position: "fixed",
+          bottom: 0,
+          left: 0,
+          right: 0,
+          paddingBottom: 22,
+          paddingTop: 8,
+          background:
+            "linear-gradient(180deg, rgba(248,250,252,0) 0%, var(--bg) 35%)",
+          zIndex: 20,
+        }}
+      >
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(5, 1fr)",
+            alignItems: "center",
+            padding: "0 8px",
+            maxWidth: 720,
+            margin: "0 auto",
+          }}
+        >
+          <NavItem href="/today" label="Today" active icon={<HomeIcon />} />
+          <NavItem href="/invoices" label="Invoices" icon={<InvIcon />} />
+          <div style={{ display: "flex", justifyContent: "center" }}>
+            <Link
+              href="/capture"
+              aria-label="Capture"
+              style={{
+                width: 60,
+                height: 60,
+                borderRadius: "50%",
+                background: "var(--ink)",
+                color: "#fff",
+                marginTop: -22,
+                boxShadow:
+                  "0 8px 22px rgba(11,18,32,0.35), 0 0 0 4px var(--bg)",
+                display: "inline-flex",
+                alignItems: "center",
+                justifyContent: "center",
+                textDecoration: "none",
+              }}
+            >
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+                <rect x="9" y="3" width="6" height="12" rx="3" fill="#fff" />
+                <path
+                  d="M5 11a7 7 0 0014 0M12 18v3"
+                  stroke="#fff"
+                  strokeWidth="1.8"
+                  strokeLinecap="round"
+                />
+              </svg>
+            </Link>
+          </div>
+          <NavItem href="/jobs" label="Jobs" icon={<JobsIcon />} />
+          <NavItem href="/assistant" label="Assistant" icon={<AssistIcon />} />
+        </div>
+      </nav>
     </main>
+    </>
+  );
+}
+
+function NavItem({
+  href,
+  label,
+  active = false,
+  icon,
+}: {
+  href: string;
+  label: string;
+  active?: boolean;
+  icon: React.ReactNode;
+}) {
+  return (
+    <Link
+      href={href}
+      style={{
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        gap: 3,
+        padding: "6px 0",
+        color: active ? "var(--ink)" : "var(--faint)",
+        fontSize: 10,
+        fontWeight: 600,
+        letterSpacing: 0.2,
+        textDecoration: "none",
+      }}
+    >
+      {icon}
+      <span>{label}</span>
+    </Link>
+  );
+}
+
+function HomeIcon() {
+  return (
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+      <path
+        d="M3 11l9-7 9 7v9a2 2 0 01-2 2h-4v-7H10v7H6a2 2 0 01-2-2v-9z"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
+function InvIcon() {
+  return (
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+      <path
+        d="M6 3h9l4 4v14H6V3z"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M9 12h7M9 16h5"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+      />
+    </svg>
+  );
+}
+
+function JobsIcon() {
+  return (
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+      <rect x="3" y="6" width="18" height="14" rx="2" stroke="currentColor" strokeWidth="1.8" />
+      <path d="M9 6V4h6v2" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function AssistIcon() {
+  return (
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+      <path
+        d="M4 6c0-1.1.9-2 2-2h12a2 2 0 012 2v9a2 2 0 01-2 2h-7l-5 4v-4H6a2 2 0 01-2-2V6z"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinejoin="round"
+      />
+    </svg>
   );
 }

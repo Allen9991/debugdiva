@@ -1,23 +1,52 @@
-import { CaptureHub } from "@/components/capture/CaptureHub";
+import { GhostlyCapture } from "@/components/capture/GhostlyCapture";
+import { Eyebrow } from "@/components/ui/primitives";
 
 export default function CapturePage() {
   return (
-    <main className="capture-page min-h-screen bg-[radial-gradient(circle_at_top,_rgba(16,185,129,0.16),_transparent_35%),linear-gradient(180deg,_#f8fafc_0%,_#eef6f2_100%)] px-4 py-8">
-      <div className="capture-container mx-auto max-w-xl space-y-6">
-        <div className="capture-page-header space-y-3 text-center">
-          <p className="text-sm font-semibold uppercase tracking-[0.24em] text-emerald-700">
-            Admin Ghost Capture
-          </p>
-          <h1 className="text-4xl font-semibold tracking-tight text-slate-950">
-            Speak or snap. We'll hold the admin.
+    <main
+      style={{
+        minHeight: "100vh",
+        background: "var(--bg)",
+        color: "var(--ink)",
+        paddingBottom: 48,
+      }}
+    >
+      <div
+        style={{
+          maxWidth: 720,
+          margin: "0 auto",
+          padding: "20px 16px",
+          display: "flex",
+          flexDirection: "column",
+          gap: 14,
+        }}
+      >
+        <header style={{ textAlign: "center", padding: "8px 0 4px" }}>
+          <Eyebrow>Capture</Eyebrow>
+          <h1
+            style={{
+              margin: "8px 0 6px",
+              fontSize: 28,
+              fontWeight: 800,
+              letterSpacing: -0.6,
+            }}
+          >
+            Speak or snap. Mahi will hold the admin.
           </h1>
-          <p className="text-sm leading-6 text-slate-600">
-            Start with voice capture so a tradie can finish the job, speak once
-            in the van, and move straight into draft creation.
+          <p
+            style={{
+              margin: 0,
+              fontSize: 14,
+              color: "var(--muted)",
+              lineHeight: 1.5,
+            }}
+          >
+            Finish the job, talk it through once in the van — Mahi drafts the
+            invoice.
           </p>
-        </div>
+        </header>
 
-        <CaptureHub />
+        <GhostlyCapture />
       </div>
     </main>
   );

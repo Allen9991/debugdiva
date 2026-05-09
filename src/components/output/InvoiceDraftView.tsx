@@ -5,7 +5,117 @@ import type { Invoice, LineItem } from "@/lib/types";
 import { formatCurrency } from "@/lib/format";
 import { calculateNzGst } from "@/lib/gst";
 import { LineItemEditor } from "./LineItemEditor";
-import { ApproveAndSendButton } from "./ApproveAndSendButton";
+import { Mahi } from "@/components/mahi";
+import { HoldToSend } from "@/components/ui/primitives";
+
+function InvoiceGradientHeader({
+  invoiceNumber,
+  mahiSize = 56,
+}: {
+  invoiceNumber: string;
+  mahiSize?: number;
+}) {
+  return (
+    <div
+      style={{
+        position: "relative",
+        overflow: "hidden",
+        padding: "24px 22px",
+        background: "linear-gradient(160deg, var(--accent) 0%, #C8413B 125%)",
+        color: "#fff",
+        boxShadow: "var(--shadow-hero)",
+      }}
+    >
+      <div
+        aria-hidden
+        style={{
+          position: "absolute",
+          top: -40,
+          right: -30,
+          width: 160,
+          height: 160,
+          borderRadius: "50%",
+          background: "rgba(255,255,255,0.13)",
+        }}
+      />
+      <div
+        aria-hidden
+        style={{
+          position: "absolute",
+          bottom: -50,
+          right: 24,
+          width: 120,
+          height: 120,
+          borderRadius: "50%",
+          background: "rgba(255,255,255,0.08)",
+        }}
+      />
+      <div
+        style={{
+          position: "relative",
+          display: "flex",
+          alignItems: "flex-start",
+          justifyContent: "space-between",
+          gap: 16,
+        }}
+      >
+        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+          <Mahi size={mahiSize} mood="happy" hardhat />
+          <div>
+            <div
+              style={{
+                fontSize: 11,
+                fontWeight: 700,
+                letterSpacing: 1.4,
+                textTransform: "uppercase",
+                color: "rgba(255,255,255,0.78)",
+                marginBottom: 2,
+              }}
+            >
+              Admin Ghost
+            </div>
+            <div
+              style={{
+                fontSize: 30,
+                fontWeight: 800,
+                letterSpacing: -0.7,
+                lineHeight: 1.05,
+              }}
+            >
+              INVOICE
+            </div>
+          </div>
+        </div>
+        <div style={{ textAlign: "right" }}>
+          <div
+            style={{
+              fontSize: 11,
+              fontWeight: 700,
+              letterSpacing: 1.4,
+              textTransform: "uppercase",
+              color: "rgba(255,255,255,0.78)",
+              marginBottom: 4,
+            }}
+          >
+            Invoice #
+          </div>
+          <div
+            className="tabular-nums"
+            style={{
+              fontFamily:
+                "ui-monospace, SFMono-Regular, Menlo, monospace",
+              fontWeight: 700,
+              fontSize: 16,
+              letterSpacing: 0.4,
+            }}
+          >
+            {invoiceNumber}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 interface Props {
   invoice: Invoice;
@@ -74,16 +184,7 @@ export function InvoiceDraftView({ invoice: initial, warnings = [], onApproveAnd
           </div>
 
           <div className="bg-white rounded-3xl shadow-sm border border-slate-200 overflow-hidden">
-            <div className="bg-gradient-to-br from-slate-950 to-blue-950 text-white p-6 flex justify-between items-start">
-              <div>
-                <p className="text-xs text-blue-200 uppercase tracking-wider mb-1">Admin Ghost</p>
-                <div className="text-3xl font-bold tracking-tight">INVOICE</div>
-              </div>
-              <div className="text-right">
-                <p className="text-xs text-blue-200 mb-1">Invoice number</p>
-                <div className="font-mono font-bold text-lg">{invoice.invoice_number}</div>
-              </div>
-            </div>
+            <InvoiceGradientHeader invoiceNumber={invoice.invoice_number} />
 
             <div className="p-6 space-y-6">
               <div className="grid grid-cols-2 gap-6 text-sm">
@@ -168,17 +269,7 @@ export function InvoiceDraftView({ invoice: initial, warnings = [], onApproveAnd
         )}
 
         <div className="bg-white rounded-3xl shadow-sm border border-slate-200 overflow-hidden">
-          {/* Header */}
-          <div className="bg-gradient-to-br from-slate-950 to-blue-950 text-white p-6 flex justify-between items-start">
-            <div>
-              <p className="text-xs text-blue-200 uppercase tracking-wider mb-1">Admin Ghost</p>
-              <div className="text-3xl font-bold tracking-tight">INVOICE</div>
-            </div>
-            <div className="text-right">
-              <p className="text-xs text-blue-200 mb-1">Invoice number</p>
-              <div className="font-mono font-bold text-lg">{invoice.invoice_number}</div>
-            </div>
-          </div>
+          <InvoiceGradientHeader invoiceNumber={invoice.invoice_number} />
 
           <div className="p-6 space-y-6">
             {/* Bill To + Details */}
@@ -281,16 +372,17 @@ export function InvoiceDraftView({ invoice: initial, warnings = [], onApproveAnd
         {/* Fixed bottom send bar */}
         <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 p-4">
           <div className="max-w-2xl mx-auto">
-            {sending ? (
-              <button
-                disabled
-                className="w-full py-4 rounded-2xl font-bold text-white text-lg bg-slate-400 cursor-not-allowed"
-              >
-                Sending...
-              </button>
-            ) : (
-              <ApproveAndSendButton onSend={handleSend} />
-            )}
+            <HoldToSend
+              label={sending ? "Sending…" : "Hold to approve & send"}
+              accent="var(--accent)"
+              disabled={sending}
+              onComplete={() => {
+                void handleSend();
+              }}
+            />
+            <p className="mt-2 text-center text-xs text-slate-500">
+              Hold for a second so a tap doesn&rsquo;t send by mistake.
+            </p>
           </div>
         </div>
       </div>
