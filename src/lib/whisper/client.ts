@@ -1,3 +1,5 @@
+import { getEnvVar } from "@/lib/claude/client";
+
 const OPENAI_TRANSCRIPTIONS_URL = "https://api.openai.com/v1/audio/transcriptions";
 
 type WhisperSegment = {
@@ -11,10 +13,12 @@ type WhisperResponse = {
 };
 
 function getOpenAiApiKey() {
-  const apiKey = process.env.OPENAI_API_KEY;
+  const apiKey = getEnvVar("OPENAI_API_KEY");
 
   if (!apiKey) {
-    throw new Error("OPENAI_API_KEY is not configured.");
+    throw new Error(
+      "OPENAI_API_KEY is not configured. Add it to .env.local and restart the dev server.",
+    );
   }
 
   return apiKey;
@@ -44,10 +48,11 @@ export function createWhisperClient() {
   return {
     provider: "openai" as const,
     async transcribe(audioFile: File) {
+      const model = getEnvVar("OPENAI_TRANSCRIPTION_MODEL") ?? "gpt-4o-mini-transcribe";
       const formData = new FormData();
       formData.append("file", audioFile, audioFile.name);
-      formData.append("model", "whisper-1");
-      formData.append("response_format", "verbose_json");
+      formData.append("model", model);
+      formData.append("response_format", model === "whisper-1" ? "verbose_json" : "json");
 
       const response = await fetch(OPENAI_TRANSCRIPTIONS_URL, {
         method: "POST",
@@ -68,7 +73,8 @@ export function createWhisperClient() {
 
       return {
         text: payload.text?.trim() ?? "",
-        confidence: calculateConfidence(payload.segments),
+        confidence:
+          model === "whisper-1" ? calculateConfidence(payload.segments) : 0.9,
         durationMs: Math.round((payload.duration ?? 0) * 1000),
       };
     },

@@ -18,6 +18,11 @@ export async function POST(request: Request) {
 
   const stored =
     demoStore.invoices.forJob(job_id) ?? demoStore.invoices.create({ job_id });
+  if (!stored) {
+    const errResp = { error: "Could not create invoice draft" };
+    console.log("[POST /api/output/invoice/draft] returning:", errResp);
+    return Response.json(errResp, { status: 500 });
+  }
 
   const subtotal = stored.labour_total + stored.materials_total;
   const lineItems: LineItem[] = stored.line_items.map((li) => ({

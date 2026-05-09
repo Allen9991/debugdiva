@@ -13,6 +13,7 @@ export default function AppLayout({ children }: { children: ReactNode }) {
     >
       <Sidebar />
       <div
+        className="app-shell-content"
         style={{
           flex: 1,
           minWidth: 0,

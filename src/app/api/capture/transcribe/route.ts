@@ -1,3 +1,6 @@
+import { captureMemory } from "@/lib/capture-memory";
+import { createWhisperClient } from "@/lib/whisper/client";
+
 const SUPPORTED_AUDIO_TYPES = new Set([
   "audio/webm",
   "audio/mp3",
@@ -9,9 +12,6 @@ const SUPPORTED_AUDIO_TYPES = new Set([
   "audio/x-wav",
   "audio/wave",
 ]);
-
-const DEMO_TRANSCRIPT =
-  "Finished leak repair for Sarah at 25 Queen Street. Two hours labour. Used sealant, pipe fitting, replacement valve. Materials around 75. Job tested and complete.";
 
 export async function POST(request: Request) {
   console.log("[POST /api/capture/transcribe] called");
@@ -40,11 +40,28 @@ export async function POST(request: Request) {
       audio.type,
     );
 
+    const whisper = createWhisperClient();
+    const transcription = await whisper.transcribe(audio);
+    if (!transcription.text) {
+      return Response.json(
+        { error: "The recording was transcribed, but no speech was detected." },
+        { status: 422 },
+      );
+    }
+
     const captureId = crypto.randomUUID();
+    captureMemory.save({
+      id: captureId,
+      type: "voice",
+      raw_text: transcription.text,
+      image_url: null,
+      created_at: new Date().toISOString(),
+    });
+
     const successResp = {
-      text: DEMO_TRANSCRIPT,
-      confidence: 0.93,
-      duration_ms: 18000,
+      text: transcription.text,
+      confidence: transcription.confidence,
+      duration_ms: transcription.durationMs,
       capture_id: captureId,
     };
     console.log(

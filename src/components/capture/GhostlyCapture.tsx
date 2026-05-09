@@ -13,6 +13,7 @@ import {
 import type { ExtractVoiceResponse } from "@/lib/claude/schemas";
 
 type Phase = "idle" | "recording" | "uploading" | "extracting" | "forgiveness" | "preview";
+type BusyAction = "demo" | "job" | "invoice";
 
 type ExtractApiResponse = {
   status?: string;
@@ -45,6 +46,7 @@ export function GhostlyCapture() {
   const [extracted, setExtracted] = useState<ExtractVoiceResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [forgivenessAnswer, setForgivenessAnswer] = useState("");
+  const [busyAction, setBusyAction] = useState<BusyAction | null>(null);
 
   const recorderRef = useRef<MediaRecorder | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -66,6 +68,116 @@ export function GhostlyCapture() {
     setExtracted(null);
     setError(null);
     setForgivenessAnswer("");
+    setBusyAction(null);
+  }
+
+  async function extractCapture(captureId: string) {
+    const extractRes = await fetch("/api/brain/extract", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ capture_id: captureId, type: "voice" }),
+    });
+    const extractPayload = (await extractRes.json()) as ExtractApiResponse;
+
+    if (!extractRes.ok || !extractPayload.extracted) {
+      throw new Error(extractPayload.error ?? "Extraction failed.");
+    }
+
+    return extractPayload.extracted;
+  }
+
+  async function runDemoCapture() {
+    setBusyAction("demo");
+    setError(null);
+    setPhase("extracting");
+    try {
+      const demoTranscript =
+        "Finished leak repair for Sarah at 25 Queen Street. Two hours labour. Used sealant, pipe fitting, replacement valve. Materials around $75. Job tested and complete.";
+      setTranscript(demoTranscript);
+      const extractedResult = await extractCapture("demo-capture-" + Date.now());
+      setExtracted(extractedResult);
+      setPhase(extractedResult.confidence < CONFIDENCE_THRESHOLD ? "forgiveness" : "preview");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Demo capture failed.");
+      setPhase("idle");
+    } finally {
+      setBusyAction(null);
+    }
+  }
+
+  async function createJobFromExtraction() {
+    if (!extracted) return;
+    setBusyAction("job");
+    setError(null);
+    try {
+      const res = await fetch("/api/jobs", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          client_name: extracted.client_name ?? "Unknown client",
+          location: extracted.job_location ?? "Address TBC",
+          description: extracted.job_description ?? "Captured job note",
+          labour_hours: extracted.labour_hours ?? 0,
+          materials: extracted.materials
+            .filter((material) => material.cost != null)
+            .map((material) => ({ name: material.name, cost: material.cost ?? 0 })),
+          status: "completed",
+        }),
+      });
+      const payload = (await res.json()) as { job?: { id: string }; error?: string };
+      if (!res.ok || !payload.job?.id) {
+        throw new Error(payload.error ?? "Could not create job.");
+      }
+      window.location.href = "/jobs/" + payload.job.id;
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not create job.");
+    } finally {
+      setBusyAction(null);
+    }
+  }
+
+  async function createInvoiceFromExtraction() {
+    if (!extracted) return;
+    setBusyAction("invoice");
+    setError(null);
+    try {
+      const jobRes = await fetch("/api/jobs", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          client_name: extracted.client_name ?? "Unknown client",
+          location: extracted.job_location ?? "Address TBC",
+          description: extracted.job_description ?? "Captured job note",
+          labour_hours: extracted.labour_hours ?? 0,
+          materials: extracted.materials
+            .filter((material) => material.cost != null)
+            .map((material) => ({ name: material.name, cost: material.cost ?? 0 })),
+          status: "completed",
+        }),
+      });
+      const jobPayload = (await jobRes.json()) as { job?: { id: string }; error?: string };
+      if (!jobRes.ok || !jobPayload.job?.id) {
+        throw new Error(jobPayload.error ?? "Could not create job.");
+      }
+
+      const invoiceRes = await fetch("/api/invoices", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ job_id: jobPayload.job.id }),
+      });
+      const invoicePayload = (await invoiceRes.json()) as {
+        invoice?: { id: string };
+        error?: string;
+      };
+      if (!invoiceRes.ok || !invoicePayload.invoice?.id) {
+        throw new Error(invoicePayload.error ?? "Could not create invoice.");
+      }
+      window.location.href = "/invoices/" + invoicePayload.invoice.id;
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not create invoice.");
+    } finally {
+      setBusyAction(null);
+    }
   }
 
   async function startRecording() {
@@ -164,20 +276,10 @@ export function GhostlyCapture() {
       setTranscript(text);
       setPhase("extracting");
 
-      const extractRes = await fetch("/api/brain/extract", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ capture_id, type: "voice" }),
-      });
-      const extractPayload = (await extractRes.json()) as ExtractApiResponse;
+      const extractedResult = await extractCapture(capture_id);
+      setExtracted(extractedResult);
 
-      if (!extractRes.ok || !extractPayload.extracted) {
-        throw new Error(extractPayload.error ?? "Extraction failed.");
-      }
-
-      setExtracted(extractPayload.extracted);
-
-      if (extractPayload.extracted.confidence < CONFIDENCE_THRESHOLD) {
+      if (extractedResult.confidence < CONFIDENCE_THRESHOLD) {
         setPhase("forgiveness");
       } else {
         setPhase("preview");
@@ -190,7 +292,14 @@ export function GhostlyCapture() {
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
-      {phase === "idle" && <IdleView onStart={startRecording} error={error} />}
+      {phase === "idle" && (
+        <IdleView
+          onStart={startRecording}
+          onDemoCapture={runDemoCapture}
+          error={error}
+          busy={busyAction === "demo"}
+        />
+      )}
       {phase === "recording" && (
         <RecordingView elapsed={elapsed} onStop={stopRecording} />
       )}
@@ -207,7 +316,15 @@ export function GhostlyCapture() {
         />
       )}
       {phase === "preview" && extracted && (
-        <PreviewView extracted={extracted} transcript={transcript} onReset={reset} />
+        <PreviewView
+          extracted={extracted}
+          transcript={transcript}
+          error={error}
+          busyAction={busyAction}
+          onCreateJob={createJobFromExtraction}
+          onCreateInvoice={createInvoiceFromExtraction}
+          onReset={reset}
+        />
       )}
     </div>
   );
@@ -215,10 +332,14 @@ export function GhostlyCapture() {
 
 function IdleView({
   onStart,
+  onDemoCapture,
   error,
+  busy,
 }: {
   onStart: () => void;
+  onDemoCapture: () => void;
   error: string | null;
+  busy: boolean;
 }) {
   return (
     <Card padding={26}>
@@ -307,6 +428,26 @@ function IdleView({
         >
           Snap a receipt instead
         </Link>
+
+        <button
+          type="button"
+          onClick={onDemoCapture}
+          disabled={busy}
+          style={{
+            height: 48,
+            padding: "0 18px",
+            borderRadius: 12,
+            border: "none",
+            color: "#fff",
+            background: "var(--accent)",
+            fontSize: 14,
+            fontWeight: 700,
+            cursor: busy ? "not-allowed" : "pointer",
+            opacity: busy ? 0.7 : 1,
+          }}
+        >
+          {busy ? "Creating demo..." : "Try demo capture"}
+        </button>
 
         {error && (
           <p
@@ -709,10 +850,18 @@ function ForgivenessView({
 function PreviewView({
   extracted,
   transcript,
+  error,
+  busyAction,
+  onCreateJob,
+  onCreateInvoice,
   onReset,
 }: {
   extracted: ExtractVoiceResponse;
   transcript: string;
+  error: string | null;
+  busyAction: BusyAction | null;
+  onCreateJob: () => void;
+  onCreateInvoice: () => void;
   onReset: () => void;
 }) {
   const confidencePct = Math.round(extracted.confidence * 100);
@@ -808,7 +957,22 @@ function PreviewView({
         </Card>
       )}
 
-      <div style={{ display: "flex", gap: 10 }}>
+      {error && (
+        <div
+          style={{
+            padding: "10px 12px",
+            borderRadius: 12,
+            background: "#FEE2E2",
+            color: "#991B1B",
+            fontSize: 13,
+            fontWeight: 600,
+          }}
+        >
+          {error}
+        </div>
+      )}
+
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 10 }}>
         <button
           type="button"
           onClick={onReset}
@@ -825,6 +989,45 @@ function PreviewView({
           }}
         >
           Record another
+        </button>
+        <button
+          type="button"
+          onClick={onCreateJob}
+          disabled={busyAction !== null}
+          style={{
+            flex: 1,
+            height: 52,
+            borderRadius: 14,
+            border: "1px solid var(--border-strong)",
+            background: "#fff",
+            color: "var(--ink)",
+            fontSize: 15,
+            fontWeight: 600,
+            cursor: busyAction ? "not-allowed" : "pointer",
+            opacity: busyAction ? 0.7 : 1,
+          }}
+        >
+          {busyAction === "job" ? "Creating..." : "Create job"}
+        </button>
+        <button
+          type="button"
+          onClick={onCreateInvoice}
+          disabled={busyAction !== null}
+          style={{
+            flex: 1,
+            height: 52,
+            borderRadius: 14,
+            border: "none",
+            background: "var(--accent)",
+            color: "#fff",
+            fontSize: 15,
+            fontWeight: 600,
+            cursor: busyAction ? "not-allowed" : "pointer",
+            opacity: busyAction ? 0.7 : 1,
+            boxShadow: "var(--shadow-elevated)",
+          }}
+        >
+          {busyAction === "invoice" ? "Drafting..." : "Create invoice"}
         </button>
         <Link
           href="/jobs"

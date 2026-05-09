@@ -107,11 +107,15 @@ export function Sidebar() {
         display: "flex",
         flexDirection: "column",
         gap: 4,
-        position: "sticky",
+        position: "fixed",
         top: 0,
+        left: 0,
+        bottom: 0,
         height: "100vh",
         width: 232,
         flexShrink: 0,
+        zIndex: 80,
+        boxSizing: "border-box",
       }}
     >
       <Link

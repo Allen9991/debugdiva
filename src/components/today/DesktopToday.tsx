@@ -1,3 +1,5 @@
+"use client";
+
 import Link from "next/link";
 import { Mahi } from "@/components/mahi";
 import { MahiTag } from "@/components/ui/primitives";

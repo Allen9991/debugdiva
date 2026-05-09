@@ -53,6 +53,18 @@ export async function POST(request: Request) {
     }
   }
 
+  if (document_type === "quote") {
+    const quote = demoStore.quotes.get(document_id);
+    if (quote) {
+      demoStore.quotes.update(quote.id, { status: "sent", sent_at });
+      demoStore.notifications.push({
+        title: "Quote sent to " + quote.client_name,
+        body: "Marked as sent. Follow-up reminder is ready if they do not reply.",
+        href: "/quotes",
+      });
+    }
+  }
+
   const response = { sent: true, sent_at, simulated: true };
   console.log("[POST /api/output/send] returning:", response);
   return NextResponse.json(response);

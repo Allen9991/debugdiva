@@ -119,6 +119,7 @@ body {
 @media (min-width: 1024px) {
   .gh-mobile-only { display: none !important; }
   .gh-desktop-only { display: block !important; }
+  .app-shell-content { margin-left: 232px; }
 }
 
 /* Animations referenced by capture/forgiveness flows */
