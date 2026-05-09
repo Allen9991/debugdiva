@@ -60,6 +60,22 @@ function actionLabel(type: PendingAction["type"]) {
   return "Missing info";
 }
 
+function actionHref(action: PendingAction) {
+  if (action.type === "send_invoice" && action.job_id) {
+    return `/invoices/${action.job_id}`;
+  }
+
+  if (action.type === "follow_up_quote") {
+    return "/quotes";
+  }
+
+  if (action.type === "attach_receipt") {
+    return action.job_id ? `/jobs/${action.job_id}#captures` : "/capture";
+  }
+
+  return action.job_id ? `/jobs/${action.job_id}` : "/assistant";
+}
+
 export default async function TodayPage() {
   const dashboard = await getDashboardData();
 
@@ -169,7 +185,7 @@ export default async function TodayPage() {
                 href="/capture"
                 className="rounded-2xl bg-white px-5 py-3 text-center text-sm font-semibold text-slate-950 shadow-sm hover:bg-blue-50"
               >
-                Speak job note
+                + Speak job note
               </a>
             </div>
           </header>
@@ -241,9 +257,7 @@ export default async function TodayPage() {
                     </div>
 
                     <a
-                      href={
-                        action.job_id ? `/jobs/${action.job_id}` : "/capture"
-                      }
+                      href={actionHref(action)}
                       className="rounded-xl bg-slate-950 px-4 py-2 text-center text-sm font-semibold text-white hover:bg-slate-800"
                     >
                       Review

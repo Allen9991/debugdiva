@@ -100,13 +100,22 @@ export default async function JobsPage() {
             >
               Jobs
             </a>
-            <a className="block rounded-2xl px-4 py-3 text-slate-600 hover:bg-slate-100">
+            <a
+              href="/invoices"
+              className="block rounded-2xl px-4 py-3 text-slate-600 hover:bg-slate-100"
+            >
               Invoices
             </a>
-            <a className="block rounded-2xl px-4 py-3 text-slate-600 hover:bg-slate-100">
+            <a
+              href="/quotes"
+              className="block rounded-2xl px-4 py-3 text-slate-600 hover:bg-slate-100"
+            >
               Quotes
             </a>
-            <a className="block rounded-2xl px-4 py-3 text-slate-600 hover:bg-slate-100">
+            <a
+              href="/assistant"
+              className="block rounded-2xl px-4 py-3 text-slate-600 hover:bg-slate-100"
+            >
               Assistant
             </a>
           </nav>

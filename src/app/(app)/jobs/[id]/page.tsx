@@ -128,13 +128,22 @@ export default async function JobDetailPage({ params }: JobDetailPageProps) {
             >
               Jobs
             </a>
-            <a className="block rounded-2xl px-4 py-3 text-slate-600 hover:bg-slate-100">
+            <a
+              href="/invoices"
+              className="block rounded-2xl px-4 py-3 text-slate-600 hover:bg-slate-100"
+            >
               Invoices
             </a>
-            <a className="block rounded-2xl px-4 py-3 text-slate-600 hover:bg-slate-100">
+            <a
+              href="/quotes"
+              className="block rounded-2xl px-4 py-3 text-slate-600 hover:bg-slate-100"
+            >
               Quotes
             </a>
-            <a className="block rounded-2xl px-4 py-3 text-slate-600 hover:bg-slate-100">
+            <a
+              href="/assistant"
+              className="block rounded-2xl px-4 py-3 text-slate-600 hover:bg-slate-100"
+            >
               Assistant
             </a>
           </nav>
@@ -217,7 +226,10 @@ export default async function JobDetailPage({ params }: JobDetailPageProps) {
                 </div>
               </article>
 
-              <article className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm md:p-6">
+              <article
+                id="captures"
+                className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm md:p-6"
+              >
                 <h2 className="text-xl font-bold">Captures</h2>
 
                 <div className="mt-5 space-y-3">
