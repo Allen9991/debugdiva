@@ -1,30 +1,28 @@
+import {
+  ensureCaptureBucket,
+  getSupabaseServiceConfig,
+  resolveCaptureUserId,
+} from "@/lib/supabase/capture";
+
 const SUPPORTED_IMAGE_TYPES = new Set(["image/jpeg", "image/png"]);
 const RECEIPT_BUCKET = "captures";
 
 type CaptureInsert = {
   id: string;
+  user_id?: string;
   type: "receipt";
   image_url: string;
   processed: boolean;
 };
 
-function getSupabaseConfig() {
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-
-  if (!supabaseUrl || !serviceRoleKey) {
-    return null;
-  }
-
-  return { supabaseUrl, serviceRoleKey };
-}
-
 async function uploadToSupabaseStorage(file: File, captureId: string) {
-  const config = getSupabaseConfig();
+  const config = getSupabaseServiceConfig();
 
   if (!config) {
     return null;
   }
+
+  await ensureCaptureBucket(config, RECEIPT_BUCKET);
 
   const fileExtension =
     file.type === "image/png"
@@ -57,11 +55,14 @@ async function uploadToSupabaseStorage(file: File, captureId: string) {
 }
 
 async function persistCapture(record: CaptureInsert) {
-  const config = getSupabaseConfig();
+  const config = getSupabaseServiceConfig();
 
   if (!config) {
     return;
   }
+
+  const userId = await resolveCaptureUserId(config);
+  const body = userId ? { ...record, user_id: userId } : record;
 
   const response = await fetch(`${config.supabaseUrl}/rest/v1/captures`, {
     method: "POST",
@@ -71,7 +72,7 @@ async function persistCapture(record: CaptureInsert) {
       "Content-Type": "application/json",
       Prefer: "return=minimal",
     },
-    body: JSON.stringify(record),
+    body: JSON.stringify(body),
   });
 
   if (!response.ok) {

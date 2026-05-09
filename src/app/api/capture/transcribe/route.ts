@@ -1,4 +1,9 @@
 import { createWhisperClient } from "@/lib/whisper/client";
+import {
+  ensureCaptureBucket,
+  getSupabaseServiceConfig,
+  resolveCaptureUserId,
+} from "@/lib/supabase/capture";
 
 const SUPPORTED_AUDIO_TYPES = new Set([
   "audio/webm",
@@ -7,34 +12,29 @@ const SUPPORTED_AUDIO_TYPES = new Set([
   "audio/mp4",
   "audio/x-m4a",
   "audio/m4a",
+  "audio/wav",
+  "audio/x-wav",
+  "audio/wave",
 ]);
 const CAPTURE_BUCKET = "captures";
 
 type CaptureInsert = {
   id: string;
+  user_id?: string;
   type: "voice";
   raw_text: string;
   audio_url: string | null;
   processed: boolean;
 };
 
-function getSupabaseConfig() {
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-
-  if (!supabaseUrl || !serviceRoleKey) {
-    return null;
-  }
-
-  return { supabaseUrl, serviceRoleKey };
-}
-
 async function uploadAudioToSupabaseStorage(file: File, captureId: string) {
-  const config = getSupabaseConfig();
+  const config = getSupabaseServiceConfig();
 
   if (!config) {
     return null;
   }
+
+  await ensureCaptureBucket(config, CAPTURE_BUCKET);
 
   const fileExtension =
     file.type === "audio/webm"
@@ -43,7 +43,9 @@ async function uploadAudioToSupabaseStorage(file: File, captureId: string) {
         ? "mp3"
         : file.type === "audio/mp4" || file.type === "audio/m4a" || file.type === "audio/x-m4a"
           ? "m4a"
-          : "bin";
+          : file.type === "audio/wav" || file.type === "audio/x-wav" || file.type === "audio/wave"
+            ? "wav"
+            : "bin";
   const storagePath = `voice/${captureId}.${fileExtension}`;
 
   const uploadResponse = await fetch(
@@ -69,11 +71,14 @@ async function uploadAudioToSupabaseStorage(file: File, captureId: string) {
 }
 
 async function persistCapture(record: CaptureInsert) {
-  const config = getSupabaseConfig();
+  const config = getSupabaseServiceConfig();
 
   if (!config) {
     return;
   }
+
+  const userId = await resolveCaptureUserId(config);
+  const body = userId ? { ...record, user_id: userId } : record;
 
   const response = await fetch(`${config.supabaseUrl}/rest/v1/captures`, {
     method: "POST",
@@ -83,7 +88,7 @@ async function persistCapture(record: CaptureInsert) {
       "Content-Type": "application/json",
       Prefer: "return=minimal",
     },
-    body: JSON.stringify(record),
+    body: JSON.stringify(body),
   });
 
   if (!response.ok) {
