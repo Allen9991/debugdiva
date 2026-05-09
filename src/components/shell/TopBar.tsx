@@ -30,6 +30,8 @@ const TITLE_MAP: { match: RegExp; label: string }[] = [
   { match: /^\/invoices\/[^/]+/, label: "Invoice detail" },
   { match: /^\/invoices/, label: "Invoices" },
   { match: /^\/quotes/, label: "Quotes" },
+  { match: /^\/draft-emails\/[^/]+/, label: "Draft email detail" },
+  { match: /^\/draft-emails/, label: "Draft Emails" },
   { match: /^\/assistant/, label: "Assistant" },
   { match: /^\/settings/, label: "Settings" },
   { match: /^\/login/, label: "Sign in" },

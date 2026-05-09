@@ -13,8 +13,8 @@ import {
 import type { ExtractVoiceResponse } from "@/lib/claude/schemas";
 
 type Phase = "idle" | "recording" | "uploading" | "extracting" | "forgiveness" | "preview";
-type BusyAction = "demo" | "job" | "invoice" | "quote";
-type CaptureIntent = "job" | "invoice" | "quote" | "complete_existing_job" | "mark_existing_paid";
+type BusyAction = "demo" | "job" | "invoice" | "quote" | "email";
+type CaptureIntent = "job" | "invoice" | "quote" | "email" | "complete_existing_job" | "mark_existing_paid";
 
 type ExtractApiResponse = {
   status?: string;
@@ -115,6 +115,7 @@ function findExistingOpenJob(jobs: ExistingJob[], extracted: ExtractVoiceRespons
 
 function deriveCaptureIntent(transcript: string): CaptureIntent {
   const lower = transcript.toLowerCase();
+  if (/\b(email|message|follow up|follow-up|reply)\b/.test(lower)) return "email";
   if (/\b(paid|payment received|has paid|mark paid)\b/.test(lower)) return "mark_existing_paid";
   if (/\b(complete|completed|finished|done|fixed|wrapped up)\b/.test(lower)) return "complete_existing_job";
   if (/\b(invoic\w*|inv)\b/.test(lower)) return "invoice";
@@ -319,6 +320,37 @@ export function GhostlyCapture() {
     }
   }
 
+  async function createEmailFromExtraction() {
+    if (!extracted) return;
+    setBusyAction("email");
+    setError(null);
+    try {
+      const emailRes = await fetch("/api/draft-emails", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          client_name: extracted.client_name ?? "Unknown client",
+          client_email: undefined,
+          job_description: extracted.job_description ?? transcript,
+          location: extracted.job_location ?? "",
+          transcript,
+        }),
+      });
+      const emailPayload = (await emailRes.json()) as {
+        draftEmail?: { id: string };
+        error?: string;
+      };
+      if (!emailRes.ok || !emailPayload.draftEmail?.id) {
+        throw new Error(emailPayload.error ?? "Could not create draft email.");
+      }
+      window.location.href = "/draft-emails/" + emailPayload.draftEmail.id;
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not create draft email.");
+    } finally {
+      setBusyAction(null);
+    }
+  }
+
   function submitForgivenessAnswer() {
     if (!extracted || !forgivenessAnswer.trim()) return;
     const field = extracted.missing_fields[0];
@@ -501,6 +533,7 @@ export function GhostlyCapture() {
           onCreateJob={createJobFromExtraction}
           onCreateInvoice={createInvoiceFromExtraction}
           onCreateQuote={createQuoteFromExtraction}
+          onCreateEmail={createEmailFromExtraction}
           onReset={reset}
         />
       )}
@@ -1033,6 +1066,7 @@ function PreviewView({
   onCreateJob,
   onCreateInvoice,
   onCreateQuote,
+  onCreateEmail,
   onReset,
 }: {
   extracted: ExtractVoiceResponse;
@@ -1042,6 +1076,7 @@ function PreviewView({
   onCreateJob: () => void;
   onCreateInvoice: () => void;
   onCreateQuote: () => void;
+  onCreateEmail: () => void;
   onReset: () => void;
 }) {
   const confidencePct = Math.round(extracted.confidence * 100);
@@ -1049,6 +1084,7 @@ function PreviewView({
   const showJobAction = intent === "job" || intent === "complete_existing_job" || intent === "mark_existing_paid";
   const showInvoiceAction = intent === "invoice" || intent === "job";
   const showQuoteAction = intent === "quote" || intent === "job";
+  const showEmailAction = intent === "email";
   const jobActionLabel =
     intent === "mark_existing_paid"
       ? "Mark paid"
@@ -1251,25 +1287,28 @@ function PreviewView({
             {busyAction === "quote" ? "Drafting..." : "Create quote"}
           </button>
         )}
-        <Link
-          href="/jobs"
-          style={{
-            flex: 1,
-            height: 52,
-            borderRadius: 14,
-            background: "var(--ink)",
-            color: "#fff",
-            fontSize: 15,
-            fontWeight: 600,
-            display: "inline-flex",
-            alignItems: "center",
-            justifyContent: "center",
-            textDecoration: "none",
-            boxShadow: "var(--shadow-elevated)",
-          }}
-        >
-          Looks good →
-        </Link>
+        {showEmailAction && (
+          <button
+            type="button"
+            onClick={onCreateEmail}
+            disabled={busyAction !== null}
+            style={{
+              flex: 1,
+              height: 52,
+              borderRadius: 14,
+              border: "none",
+              background: "#1A5155",
+              color: "#fff",
+              fontSize: 15,
+              fontWeight: 600,
+              cursor: busyAction ? "not-allowed" : "pointer",
+              opacity: busyAction ? 0.7 : 1,
+              boxShadow: "var(--shadow-elevated)",
+            }}
+          >
+            {busyAction === "email" ? "Drafting..." : "Draft email"}
+          </button>
+        )}
       </div>
     </div>
   );

@@ -5,7 +5,6 @@ import Link from "next/link";
 import type { Quote } from "@/lib/types";
 import { QuoteDraftView } from "@/components/output/QuoteDraftView";
 import { Pill } from "@/components/ui/primitives";
-import { DeleteRecordButton } from "@/components/ui/DeleteRecordButton";
 
 type JobOption = {
   id: string;
@@ -113,6 +112,16 @@ export default function QuotesPage() {
     }
   };
 
+  const deleteQuote = async (id: string) => {
+    const res = await fetch("/api/quotes?id=" + id, { method: "DELETE" });
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      alert(data?.error ?? "Could not delete this quote.");
+      return;
+    }
+    setQuotes((current) => current.filter((quote) => quote.id !== id));
+  };
+
   if (activeQuote) {
     return (
       <QuoteDraftView quote={activeQuote} warnings={warnings} onApproveAndSend={handleSend} />
@@ -210,7 +219,7 @@ export default function QuotesPage() {
                 </Link>
                 <div style={{ display: "grid", gap: 8, justifyItems: "end" }}>
                   <div className="tabular-nums" style={{ fontSize: 18, fontWeight: 800 }}>{money(q.total)}</div>
-                  <DeleteRecordButton endpoint={"/api/quotes?id=" + q.id} label="Remove" confirmLabel="Delete quote" />
+                  <QuoteRemoveButton onDelete={() => deleteQuote(q.id)} />
                 </div>
               </div>
             ))}
@@ -218,5 +227,57 @@ export default function QuotesPage() {
         </section>
       </div>
     </main>
+  );
+}
+
+function QuoteRemoveButton({ onDelete }: { onDelete: () => Promise<void> }) {
+  const [confirming, setConfirming] = useState(false);
+  const [busy, setBusy] = useState(false);
+
+  async function remove() {
+    setBusy(true);
+    try {
+      await onDelete();
+    } finally {
+      setBusy(false);
+      setConfirming(false);
+    }
+  }
+
+  if (confirming) {
+    return (
+      <span style={{ display: "inline-flex", gap: 6, flexWrap: "wrap", justifyContent: "flex-end" }}>
+        <button
+          type="button"
+          onClick={remove}
+          disabled={busy}
+          style={{ height: 32, padding: "0 10px", borderRadius: 9, border: "none", background: "#DC2626", color: "#fff", fontSize: 12, fontWeight: 700, cursor: busy ? "not-allowed" : "pointer", opacity: busy ? 0.65 : 1 }}
+        >
+          {busy ? "Deleting..." : "Delete quote"}
+        </button>
+        <button
+          type="button"
+          onClick={() => setConfirming(false)}
+          disabled={busy}
+          style={{ height: 32, padding: "0 10px", borderRadius: 9, border: "1px solid var(--border, #E2E8F0)", background: "#fff", color: "var(--ink, #0B1220)", fontSize: 12, fontWeight: 700, cursor: "pointer" }}
+        >
+          Cancel
+        </button>
+      </span>
+    );
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={(event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        setConfirming(true);
+      }}
+      style={{ height: 32, padding: "0 10px", borderRadius: 9, border: "1px solid #FCA5A5", background: "#FEE2E2", color: "#991B1B", fontSize: 12, fontWeight: 700, cursor: "pointer" }}
+    >
+      Remove
+    </button>
   );
 }
