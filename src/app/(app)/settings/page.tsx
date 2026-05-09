@@ -1,4 +1,5 @@
 import { Card, Eyebrow } from "@/components/ui/primitives";
+import { WorkPreferences } from "@/components/wellbeing/WorkPreferences";
 
 export default function SettingsPage() {
   return (
@@ -14,6 +15,8 @@ export default function SettingsPage() {
             and NZ GST so capture, jobs, quotes, and invoices can be shown end to end.
           </p>
         </Card>
+
+        <WorkPreferences />
       </div>
     </main>
   );

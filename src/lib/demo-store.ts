@@ -70,6 +70,12 @@ export type DemoNotification = {
   created_at: string;
 };
 
+export type WorkPreferences = {
+  preferred_finish_hour: number;
+  max_weekly_hours: number;
+  work_weekends: boolean;
+};
+
 type DemoState = {
   jobs: DemoJob[];
   invoices: DemoInvoice[];
@@ -78,6 +84,7 @@ type DemoState = {
   settings: {
     labour_rate: number;
     gst_enabled: boolean;
+    work_preferences: WorkPreferences;
   };
 };
 
@@ -222,6 +229,46 @@ function createInitialState(): DemoState {
       created_at: isoDaysFromNow(-12),
       updated_at: isoDaysFromNow(-11),
     },
+    {
+      id: "33333333-3333-3333-3333-333333333336",
+      client_name: "Mark Davies",
+      location: "42 Papanui Road, Christchurch",
+      description: "Full bathroom renovation — plumbing fit-out for new shower, vanity and toilet.",
+      status: "in_progress",
+      labour_hours: 14,
+      materials: [
+        { name: "Shower fitting kit", cost: 180 },
+        { name: "Vanity plumbing kit", cost: 95 },
+        { name: "Toilet suite", cost: 340 },
+      ],
+      created_at: isoDaysFromNow(-3),
+      updated_at: isoDaysFromNow(-1),
+    },
+    {
+      id: "33333333-3333-3333-3333-333333333337",
+      client_name: "Tom Baker",
+      location: "7 Fendalton Road, Christchurch",
+      description: "Hot water cylinder replacement and pipe lagging.",
+      status: "in_progress",
+      labour_hours: 6,
+      materials: [
+        { name: "300L HWC", cost: 620 },
+        { name: "Pipe lagging", cost: 45 },
+      ],
+      created_at: isoDaysFromNow(-1),
+      updated_at: isoDaysFromNow(-1),
+    },
+    {
+      id: "33333333-3333-3333-3333-333333333338",
+      client_name: "Lisa Chen",
+      location: "15 Merivale Lane, Christchurch",
+      description: "Blocked drain inspection and clear.",
+      status: "new",
+      labour_hours: 3,
+      materials: [],
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    },
   ];
 
   const invoices = [
@@ -275,6 +322,11 @@ function createInitialState(): DemoState {
     settings: {
       labour_rate: LABOUR_RATE,
       gst_enabled: true,
+      work_preferences: {
+        preferred_finish_hour: 17,
+        max_weekly_hours: 45,
+        work_weekends: false,
+      },
     },
   };
 }
@@ -413,6 +465,10 @@ export const demoStore = {
   settings: {
     get() {
       return state.settings;
+    },
+    updateWorkPreferences(patch: Partial<WorkPreferences>) {
+      Object.assign(state.settings.work_preferences, patch);
+      return state.settings.work_preferences;
     },
   },
 };

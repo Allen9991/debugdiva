@@ -4,6 +4,8 @@ import { MahiSummary } from "@/components/brain/MahiSummary";
 import { CaptureHub } from "@/components/capture/CaptureHub";
 import { Mahi } from "@/components/mahi";
 import { Card, Eyebrow, Pill } from "@/components/ui/primitives";
+import { MentalLoadMeter } from "@/components/wellbeing/MentalLoadMeter";
+import { WorkloadForecast } from "@/components/wellbeing/WorkloadForecast";
 import {
   DesktopToday,
   type DesktopJob,
@@ -186,6 +188,10 @@ export default async function TodayPage() {
           </section>
 
           <MahiSummary />
+
+          <WorkloadForecast />
+
+          <MentalLoadMeter />
 
           <Card padding={18}>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
