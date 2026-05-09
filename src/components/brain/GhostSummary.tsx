@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { Mahi } from "@/components/mahi";
 import { cn } from "@/lib/utils";
 
 type SummaryStats = {
@@ -69,8 +70,8 @@ export function GhostSummary({
       )}
     >
       <header className="flex items-start gap-3">
-        <div className="shrink-0 w-10 h-10 rounded-2xl bg-slate-900 text-white flex items-center justify-center text-xl">
-          👻
+        <div className="shrink-0 w-10 h-10 rounded-2xl bg-slate-900 text-white flex items-center justify-center">
+          <Mahi size={30} mood="happy" />
         </div>
         <div className="flex-1 min-w-0">
           <p className="text-xs font-semibold uppercase tracking-wider text-blue-600">

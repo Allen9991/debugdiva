@@ -9,7 +9,7 @@ export default function CapturePage() {
     <GhostlyFrame
       eyebrow="Capture zone"
       title="Speak once. Let Ghostly sort the admin."
-      description="Built for the van moment. Record the job while it is still fresh, then let Brain Zone turn that messy note into a job, invoice draft, and follow-up."
+      description="Built for the van moment. Record the job while it is still fresh, then let Ghostly turn that messy note into a job, quote, invoice draft, and follow-up."
       aside={<CaptureAside />}
     >
       <div style={{ display: "grid", gap: 18 }}>
@@ -22,7 +22,7 @@ export default function CapturePage() {
             }}
           >
             <CaptureMetric label="Target time" value="< 2 min" helper="From voice note to ready draft" />
-            <CaptureMetric label="Clarifying style" value="1 question" helper="Only when details are truly missing" />
+            <CaptureMetric label="Clarifying style" value="Smart prompts" helper="Only when details are truly missing" />
             <CaptureMetric label="Capture modes" value="Voice + receipt" helper="Start with voice, add receipt after" />
           </div>
         </Card>
@@ -71,14 +71,14 @@ function CaptureAside() {
         <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
           <Mahi size={52} mood="listening" hardhat />
           <div>
-            <Eyebrow>Mahi is listening</Eyebrow>
+            <Eyebrow>Ghostly is listening</Eyebrow>
             <h2 style={{ margin: "6px 0 0", fontSize: 20, fontWeight: 800, letterSpacing: -0.4 }}>
               Designed for messy notes
             </h2>
           </div>
         </div>
         <p style={{ margin: "14px 0 0", fontSize: 14.5, lineHeight: 1.6, color: "var(--muted)" }}>
-          Speak naturally. Ghostly should extract what it knows, leave gaps visible, and ask one sharp clarifying question instead of pretending.
+          Speak naturally. Ghostly should extract what it knows, leave gaps visible, and ask short clarifying questions instead of pretending.
         </p>
       </Card>
 
@@ -97,7 +97,7 @@ function CaptureAside() {
       <Card padding={18}>
         <Eyebrow>Fast links</Eyebrow>
         <div style={{ display: "grid", gap: 10, marginTop: 12 }}>
-          <QuickLink href="/today" title="Back to Today" body="See reminders and draft actions after capture." />
+          <QuickLink href="/today" title="Back to Dashboard" body="See reminders and draft actions after capture." />
           <QuickLink href="/assistant" title="Ask the assistant" body="Query jobs, cash, invoices, and next steps." />
         </div>
       </Card>

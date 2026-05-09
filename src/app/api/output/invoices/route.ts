@@ -1,10 +1,12 @@
 import { NextResponse } from "next/server";
+import { demoStore } from "@/lib/demo-store";
 
-// Demo invoice list — mirrors the dashboard's demoInvoices/demoJobs data
-// so the /invoices list page renders without a DB read. The list links to
-// /invoices/[job_id] which fetches a fresh draft on demand.
+// Backwards-compatible: the assistant page still hits this endpoint. Now it
+// just delegates to the shared demo store so it sees newly-created invoices
+// instead of hardcoded demo rows.
 
 type InvoiceSummary = {
+  id: string;
   job_id: string;
   client_name: string;
   location: string;
@@ -15,36 +17,24 @@ type InvoiceSummary = {
   created_at: string;
 };
 
-const inDays = (n: number) =>
-  new Date(Date.now() + n * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
-
-const ago = (n: number) =>
-  new Date(Date.now() - n * 24 * 60 * 60 * 1000).toISOString();
-
-const demoInvoices: InvoiceSummary[] = [
-  {
-    job_id: "33333333-3333-3333-3333-333333333333",
-    client_name: "Sarah Thompson",
-    location: "25 Queen Street, Christchurch",
-    description:
-      "Leak repair under kitchen sink. Used sealant, pipe fitting, and replacement valve.",
-    total: 293.25,
-    status: "draft",
-    due_date: inDays(20),
-    created_at: ago(1),
-  },
-  {
-    job_id: "33333333-3333-3333-3333-333333333335",
-    client_name: "Emma Patel",
-    location: "8 Riccarton Road, Christchurch",
-    description: "Hot water cylinder inspection completed.",
-    total: 126.5,
-    status: "sent",
-    due_date: inDays(-4),
-    created_at: ago(11),
-  },
-];
-
 export async function GET() {
-  return NextResponse.json({ invoices: demoInvoices });
+  console.log("[GET /api/output/invoices] called");
+  const invoices: InvoiceSummary[] = demoStore.invoices.all().map((inv) => ({
+    id: inv.id,
+    job_id: inv.job_id,
+    client_name: inv.client_name,
+    location: inv.location,
+    description: inv.description,
+    total: inv.total,
+    status: inv.status,
+    due_date: inv.due_date,
+    created_at: inv.created_at,
+  }));
+  const response = { invoices };
+  console.log(
+    "[GET /api/output/invoices] returning:",
+    invoices.length,
+    "invoices",
+  );
+  return NextResponse.json(response);
 }

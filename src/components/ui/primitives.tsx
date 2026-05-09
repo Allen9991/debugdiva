@@ -177,7 +177,7 @@ export function MahiTag({
           background: accent,
         }}
       />
-      Mahi
+      Ghostly
     </span>
   );
 }

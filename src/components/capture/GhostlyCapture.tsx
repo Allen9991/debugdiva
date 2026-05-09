@@ -13,6 +13,8 @@ import {
 import type { ExtractVoiceResponse } from "@/lib/claude/schemas";
 
 type Phase = "idle" | "recording" | "uploading" | "extracting" | "forgiveness" | "preview";
+type BusyAction = "demo" | "job" | "invoice" | "quote" | "email";
+type CaptureIntent = "job" | "invoice" | "quote" | "email" | "complete_existing_job" | "mark_existing_paid";
 
 type ExtractApiResponse = {
   status?: string;
@@ -24,6 +26,53 @@ type ExtractApiResponse = {
 
 const CONFIDENCE_THRESHOLD = 0.7;
 const WAVE_BARS = 40;
+
+const FIELD_LABELS: Record<string, string> = {
+  client_name: "Client Name",
+  job_location: "Job Location",
+  labour_hours: "Labour Hours",
+  "materials.cost": "Material Costs",
+  job_description: "Job Description",
+};
+
+type ExistingJob = {
+  id: string;
+  client_name: string;
+  location?: string | null;
+  description: string;
+  status: string;
+};
+
+function fieldLabel(field: string) {
+  return FIELD_LABELS[field] ?? field.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
+function questionForField(field: string) {
+  if (field === "client_name") return "Who is the client for this job?";
+  if (field === "job_location") return "What is the job location?";
+  if (field === "labour_hours") return "How many labour hours should I use?";
+  if (field === "materials.cost") return "What did the materials cost?";
+  return "What should I add for " + fieldLabel(field) + "?";
+}
+
+function cleanTypedAnswer(value: string, field: string) {
+  const trimmed = value.trim().replace(/\s+/g, " ");
+  const acronyms = new Set(["ucsa", "nz", "gst"]);
+  if (field === "client_name" || field === "job_location") {
+    return trimmed
+      .split(" ")
+      .map((word) => {
+        const stripped = word.replace(/[^a-z0-9]/gi, "").toLowerCase();
+        if (acronyms.has(stripped)) return word.toUpperCase();
+        return word.charAt(0).toUpperCase() + word.slice(1).toLowerCase();
+      })
+      .join(" ");
+  }
+  if (field === "job_description") {
+    return trimmed.charAt(0).toUpperCase() + trimmed.slice(1);
+  }
+  return trimmed;
+}
 
 function preferredMimeType() {
   if (typeof MediaRecorder === "undefined") return "audio/webm";
@@ -38,6 +87,48 @@ function formatTimer(ms: number) {
   return `${m}:${s.toString().padStart(2, "0")}`;
 }
 
+function normalizeMatch(value: string | null | undefined) {
+  return (value ?? "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+}
+
+function findExistingOpenJob(jobs: ExistingJob[], extracted: ExtractVoiceResponse) {
+  const client = normalizeMatch(extracted.client_name);
+  const location = normalizeMatch(extracted.job_location);
+  const description = normalizeMatch(extracted.job_description);
+
+  return jobs.find((job) => {
+    if (job.status === "completed" || job.status === "paid") return false;
+    const jobClient = normalizeMatch(job.client_name);
+    const jobLocation = normalizeMatch(job.location);
+    const jobDescription = normalizeMatch(job.description);
+    const clientMatches = client && (jobClient.includes(client) || client.includes(jobClient));
+    const locationMatches = location && (jobLocation.includes(location) || location.includes(jobLocation));
+    const descriptionMatches =
+      description &&
+      description
+        .split(" ")
+        .filter((word) => word.length > 3)
+        .some((word) => jobDescription.includes(word));
+    return Boolean(clientMatches && (locationMatches || descriptionMatches));
+  });
+}
+
+function deriveCaptureIntent(transcript: string): CaptureIntent {
+  const lower = transcript.toLowerCase();
+  if (/\b(email|message|follow up|follow-up|reply)\b/.test(lower)) return "email";
+  if (/\b(paid|payment received|has paid|mark paid)\b/.test(lower)) return "mark_existing_paid";
+  if (/\b(complete|completed|finished|done|fixed|wrapped up)\b/.test(lower)) return "complete_existing_job";
+  if (/\b(invoic\w*|inv)\b/.test(lower)) return "invoice";
+  if (/\b(quote|estimate)\b/.test(lower)) return "quote";
+  return "job";
+}
+
+function intentStatus(intent: CaptureIntent): "completed" | "paid" | "new" {
+  if (intent === "mark_existing_paid") return "paid";
+  if (intent === "quote") return "new";
+  return "completed";
+}
+
 export function GhostlyCapture() {
   const [phase, setPhase] = useState<Phase>("idle");
   const [elapsed, setElapsed] = useState(0);
@@ -45,6 +136,7 @@ export function GhostlyCapture() {
   const [extracted, setExtracted] = useState<ExtractVoiceResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [forgivenessAnswer, setForgivenessAnswer] = useState("");
+  const [busyAction, setBusyAction] = useState<BusyAction | null>(null);
 
   const recorderRef = useRef<MediaRecorder | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -66,6 +158,235 @@ export function GhostlyCapture() {
     setExtracted(null);
     setError(null);
     setForgivenessAnswer("");
+    setBusyAction(null);
+  }
+
+  async function extractCapture(captureId: string, rawTranscript?: string) {
+    const extractRes = await fetch("/api/brain/extract", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ capture_id: captureId, type: "voice", transcript: rawTranscript }),
+    });
+    const extractPayload = (await extractRes.json()) as ExtractApiResponse;
+
+    if (!extractRes.ok || !extractPayload.extracted) {
+      throw new Error(extractPayload.error ?? "Extraction failed.");
+    }
+
+    return extractPayload.extracted;
+  }
+
+  async function runDemoCapture() {
+    setBusyAction("demo");
+    setError(null);
+    setPhase("extracting");
+    try {
+      const demoTranscript =
+        "Finished leak repair for Sarah at 25 Queen Street. Two hours labour. Used sealant, pipe fitting, replacement valve. Materials around $75. Job tested and complete.";
+      setTranscript(demoTranscript);
+      const extractedResult = await extractCapture("demo-capture-" + Date.now(), demoTranscript);
+      setExtracted(extractedResult);
+      setPhase(extractedResult.confidence < CONFIDENCE_THRESHOLD ? "forgiveness" : "preview");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Demo capture failed.");
+      setPhase("idle");
+    } finally {
+      setBusyAction(null);
+    }
+  }
+
+  async function createJobRequest(status: "completed" | "new" | "paid" = "completed") {
+    if (!extracted) {
+      throw new Error("Capture is not ready yet.");
+    }
+    if (status === "completed" || status === "paid") {
+      const jobsRes = await fetch("/api/jobs", { cache: "no-store" });
+      const jobsPayload = (await jobsRes.json()) as { jobs?: ExistingJob[] };
+      const existingJob = findExistingOpenJob(jobsPayload.jobs ?? [], extracted);
+      if (existingJob) {
+        const ok = window.confirm(
+          "Ghostly found an existing job for " +
+            existingJob.client_name +
+            ". Update that job to " +
+            status.replace("_", " ") +
+            " instead of creating a new job?",
+        );
+        if (!ok) {
+          throw new Error("Update cancelled.");
+        }
+        const updateRes = await fetch("/api/jobs/" + existingJob.id, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            status,
+            location: extracted.job_location ?? existingJob.location ?? "Address TBC",
+            description: extracted.job_description ?? existingJob.description,
+            labour_hours: extracted.labour_hours ?? 0,
+            materials: extracted.materials
+              .filter((material) => material.cost != null)
+              .map((material) => ({ name: material.name, cost: material.cost ?? 0 })),
+          }),
+        });
+        const updatePayload = (await updateRes.json()) as { job?: { id: string }; error?: string };
+        if (!updateRes.ok || !updatePayload.job?.id) {
+          throw new Error(updatePayload.error ?? "Could not update existing job.");
+        }
+        return updatePayload.job;
+      }
+    }
+    const res = await fetch("/api/jobs", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          client_name: extracted.client_name ?? "Unknown client",
+          location: extracted.job_location ?? "Address TBC",
+          description: extracted.job_description ?? "Captured job note",
+          labour_hours: extracted.labour_hours ?? 0,
+          materials: extracted.materials
+            .filter((material) => material.cost != null)
+            .map((material) => ({ name: material.name, cost: material.cost ?? 0 })),
+          status,
+        }),
+      });
+    const payload = (await res.json()) as { job?: { id: string }; error?: string };
+    if (!res.ok || !payload.job?.id) {
+      throw new Error(payload.error ?? "Could not create job.");
+    }
+    return payload.job;
+  }
+
+  async function createJobFromExtraction() {
+    setBusyAction("job");
+    setError(null);
+    try {
+      const job = await createJobRequest(intentStatus(deriveCaptureIntent(transcript)));
+      window.location.href = "/jobs/" + job.id;
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not create job.");
+    } finally {
+      setBusyAction(null);
+    }
+  }
+
+  async function createInvoiceFromExtraction() {
+    if (!extracted) return;
+    setBusyAction("invoice");
+    setError(null);
+    try {
+      const job = await createJobRequest("completed");
+
+      const invoiceRes = await fetch("/api/invoices", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ job_id: job.id }),
+      });
+      const invoicePayload = (await invoiceRes.json()) as {
+        invoice?: { id: string };
+        error?: string;
+      };
+      if (!invoiceRes.ok || !invoicePayload.invoice?.id) {
+        throw new Error(invoicePayload.error ?? "Could not create invoice.");
+      }
+      window.location.href = "/invoices/" + invoicePayload.invoice.id;
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not create invoice.");
+    } finally {
+      setBusyAction(null);
+    }
+  }
+
+  async function createQuoteFromExtraction() {
+    setBusyAction("quote");
+    setError(null);
+    try {
+      const job = await createJobRequest("new");
+      const quoteRes = await fetch("/api/quotes", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ job_id: job.id }),
+      });
+      const quotePayload = (await quoteRes.json()) as {
+        quote?: { id: string };
+        error?: string;
+      };
+      if (!quoteRes.ok || !quotePayload.quote?.id) {
+        throw new Error(quotePayload.error ?? "Could not create quote.");
+      }
+      window.location.href = "/quotes";
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not create quote.");
+    } finally {
+      setBusyAction(null);
+    }
+  }
+
+  async function createEmailFromExtraction() {
+    if (!extracted) return;
+    setBusyAction("email");
+    setError(null);
+    try {
+      const emailRes = await fetch("/api/draft-emails", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          client_name: extracted.client_name ?? "Unknown client",
+          client_email: undefined,
+          job_description: extracted.job_description ?? transcript,
+          location: extracted.job_location ?? "",
+          transcript,
+        }),
+      });
+      const emailPayload = (await emailRes.json()) as {
+        draftEmail?: { id: string };
+        error?: string;
+      };
+      if (!emailRes.ok || !emailPayload.draftEmail?.id) {
+        throw new Error(emailPayload.error ?? "Could not create draft email.");
+      }
+      window.location.href = "/draft-emails/" + emailPayload.draftEmail.id;
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not create draft email.");
+    } finally {
+      setBusyAction(null);
+    }
+  }
+
+  function submitForgivenessAnswer() {
+    if (!extracted || !forgivenessAnswer.trim()) return;
+    const field = extracted.missing_fields[0];
+    const answer = cleanTypedAnswer(forgivenessAnswer, field);
+    const patch: Partial<ExtractVoiceResponse> = {};
+
+    if (field === "client_name") patch.client_name = answer;
+    if (field === "job_location") patch.job_location = answer;
+    if (field === "labour_hours") {
+      const hours = Number(answer.match(/\d+(?:\.\d+)?/)?.[0] ?? NaN);
+      if (Number.isFinite(hours)) patch.labour_hours = hours;
+    }
+    if (field === "job_description") patch.job_description = answer;
+    if (field === "materials.cost") {
+      const cost = Number(answer.match(/\d+(?:\.\d+)?/)?.[0] ?? NaN);
+      if (Number.isFinite(cost)) {
+        patch.materials = extracted.materials.length > 0
+          ? extracted.materials.map((material, index) => ({
+              ...material,
+              cost: material.cost ?? (index === 0 ? cost : null),
+            }))
+          : [{ name: "Materials", cost, quantity: null }];
+      }
+    }
+
+    const remaining = extracted.missing_fields.filter((item) => item !== field);
+    const next = {
+      ...extracted,
+      ...patch,
+      missing_fields: remaining,
+      clarifying_question: remaining[0] ? questionForField(remaining[0]) : null,
+      confidence: remaining.length === 0 ? Math.max(extracted.confidence, 0.86) : extracted.confidence,
+    };
+    setExtracted(next);
+    setForgivenessAnswer("");
+    if (remaining.length === 0) setPhase("preview");
   }
 
   async function startRecording() {
@@ -164,20 +485,10 @@ export function GhostlyCapture() {
       setTranscript(text);
       setPhase("extracting");
 
-      const extractRes = await fetch("/api/brain/extract", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ capture_id, type: "voice" }),
-      });
-      const extractPayload = (await extractRes.json()) as ExtractApiResponse;
+      const extractedResult = await extractCapture(capture_id);
+      setExtracted(extractedResult);
 
-      if (!extractRes.ok || !extractPayload.extracted) {
-        throw new Error(extractPayload.error ?? "Extraction failed.");
-      }
-
-      setExtracted(extractPayload.extracted);
-
-      if (extractPayload.extracted.confidence < CONFIDENCE_THRESHOLD) {
+      if (extractedResult.confidence < CONFIDENCE_THRESHOLD) {
         setPhase("forgiveness");
       } else {
         setPhase("preview");
@@ -190,7 +501,14 @@ export function GhostlyCapture() {
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
-      {phase === "idle" && <IdleView onStart={startRecording} error={error} />}
+      {phase === "idle" && (
+        <IdleView
+          onStart={startRecording}
+          onDemoCapture={runDemoCapture}
+          error={error}
+          busy={busyAction === "demo"}
+        />
+      )}
       {phase === "recording" && (
         <RecordingView elapsed={elapsed} onStop={stopRecording} />
       )}
@@ -202,12 +520,22 @@ export function GhostlyCapture() {
           extracted={extracted}
           answer={forgivenessAnswer}
           onAnswerChange={setForgivenessAnswer}
-          onSubmit={() => setPhase("preview")}
+          onSubmit={submitForgivenessAnswer}
           onSkip={() => setPhase("preview")}
         />
       )}
       {phase === "preview" && extracted && (
-        <PreviewView extracted={extracted} transcript={transcript} onReset={reset} />
+        <PreviewView
+          extracted={extracted}
+          transcript={transcript}
+          error={error}
+          busyAction={busyAction}
+          onCreateJob={createJobFromExtraction}
+          onCreateInvoice={createInvoiceFromExtraction}
+          onCreateQuote={createQuoteFromExtraction}
+          onCreateEmail={createEmailFromExtraction}
+          onReset={reset}
+        />
       )}
     </div>
   );
@@ -215,10 +543,14 @@ export function GhostlyCapture() {
 
 function IdleView({
   onStart,
+  onDemoCapture,
   error,
+  busy,
 }: {
   onStart: () => void;
+  onDemoCapture: () => void;
   error: string | null;
+  busy: boolean;
 }) {
   return (
     <Card padding={26}>
@@ -232,7 +564,7 @@ function IdleView({
       >
         <Mahi size={88} mood="happy" />
         <div style={{ textAlign: "center" }}>
-          <Eyebrow>Voice to invoice</Eyebrow>
+          <Eyebrow>Voice to job, quote, or invoice</Eyebrow>
           <h2
             style={{
               margin: "6px 0 4px",
@@ -307,6 +639,26 @@ function IdleView({
         >
           Snap a receipt instead
         </Link>
+
+        <button
+          type="button"
+          onClick={onDemoCapture}
+          disabled={busy}
+          style={{
+            height: 48,
+            padding: "0 18px",
+            borderRadius: 12,
+            border: "none",
+            color: "#fff",
+            background: "var(--accent)",
+            fontSize: 14,
+            fontWeight: 700,
+            cursor: busy ? "not-allowed" : "pointer",
+            opacity: busy ? 0.7 : 1,
+          }}
+        >
+          {busy ? "Creating demo..." : "Try demo capture"}
+        </button>
 
         {error && (
           <p
@@ -439,7 +791,7 @@ function ProcessingView({
       >
         <Mahi size={72} mood={isExtracting ? "thinking" : "happy"} />
         <div style={{ textAlign: "center" }}>
-          <Eyebrow>{isExtracting ? "Brain Zone" : "Whisper"}</Eyebrow>
+          <Eyebrow>{isExtracting ? "Ghostly is reading the note" : "Talking to Ghostly"}</Eyebrow>
           <h2
             style={{
               margin: "6px 0 0",
@@ -450,7 +802,7 @@ function ProcessingView({
           >
             {isExtracting
               ? "Reading your note…"
-              : "Sending to Whisper…"}
+              : "Sending your voice note to Ghostly..."}
           </h2>
         </div>
 
@@ -631,7 +983,7 @@ function ForgivenessView({
                   fontWeight: 600,
                 }}
               >
-                ⚠️ {field}
+                {fieldLabel(field)}
               </span>
             ))}
           </div>
@@ -709,13 +1061,42 @@ function ForgivenessView({
 function PreviewView({
   extracted,
   transcript,
+  error,
+  busyAction,
+  onCreateJob,
+  onCreateInvoice,
+  onCreateQuote,
+  onCreateEmail,
   onReset,
 }: {
   extracted: ExtractVoiceResponse;
   transcript: string;
+  error: string | null;
+  busyAction: BusyAction | null;
+  onCreateJob: () => void;
+  onCreateInvoice: () => void;
+  onCreateQuote: () => void;
+  onCreateEmail: () => void;
   onReset: () => void;
 }) {
   const confidencePct = Math.round(extracted.confidence * 100);
+  const intent = deriveCaptureIntent(transcript);
+  const showJobAction = intent === "job" || intent === "complete_existing_job" || intent === "mark_existing_paid";
+  const showInvoiceAction = intent === "invoice" || intent === "job";
+  const showQuoteAction = intent === "quote" || intent === "job";
+  const showEmailAction = intent === "email";
+  const jobActionLabel =
+    intent === "mark_existing_paid"
+      ? "Mark paid"
+      : intent === "complete_existing_job"
+        ? "Update job"
+        : "Create job";
+  const jobBusyLabel =
+    intent === "mark_existing_paid"
+      ? "Updating..."
+      : intent === "complete_existing_job"
+        ? "Updating..."
+        : "Creating...";
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
       <div
@@ -808,7 +1189,22 @@ function PreviewView({
         </Card>
       )}
 
-      <div style={{ display: "flex", gap: 10 }}>
+      {error && (
+        <div
+          style={{
+            padding: "10px 12px",
+            borderRadius: 12,
+            background: "#FEE2E2",
+            color: "#991B1B",
+            fontSize: 13,
+            fontWeight: 600,
+          }}
+        >
+          {error}
+        </div>
+      )}
+
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 10 }}>
         <button
           type="button"
           onClick={onReset}
@@ -826,25 +1222,93 @@ function PreviewView({
         >
           Record another
         </button>
-        <Link
-          href="/jobs"
-          style={{
-            flex: 1,
-            height: 52,
-            borderRadius: 14,
-            background: "var(--ink)",
-            color: "#fff",
-            fontSize: 15,
-            fontWeight: 600,
-            display: "inline-flex",
-            alignItems: "center",
-            justifyContent: "center",
-            textDecoration: "none",
-            boxShadow: "var(--shadow-elevated)",
-          }}
-        >
-          Looks good →
-        </Link>
+        {showJobAction && (
+          <button
+            type="button"
+            onClick={onCreateJob}
+            disabled={busyAction !== null}
+            style={{
+              flex: 1,
+              height: 52,
+              borderRadius: 14,
+              border: "1px solid var(--border-strong)",
+              background: "#fff",
+              color: "var(--ink)",
+              fontSize: 15,
+              fontWeight: 600,
+              cursor: busyAction ? "not-allowed" : "pointer",
+              opacity: busyAction ? 0.7 : 1,
+            }}
+          >
+            {busyAction === "job" ? jobBusyLabel : jobActionLabel}
+          </button>
+        )}
+        {showInvoiceAction && (
+          <button
+            type="button"
+            onClick={onCreateInvoice}
+            disabled={busyAction !== null}
+            style={{
+              flex: 1,
+              height: 52,
+              borderRadius: 14,
+              border: "none",
+              background: "var(--accent)",
+              color: "#fff",
+              fontSize: 15,
+              fontWeight: 600,
+              cursor: busyAction ? "not-allowed" : "pointer",
+              opacity: busyAction ? 0.7 : 1,
+              boxShadow: "var(--shadow-elevated)",
+            }}
+          >
+            {busyAction === "invoice" ? "Drafting..." : "Create invoice"}
+          </button>
+        )}
+        {showQuoteAction && (
+          <button
+            type="button"
+            onClick={onCreateQuote}
+            disabled={busyAction !== null}
+            style={{
+              flex: 1,
+              height: 52,
+              borderRadius: 14,
+              border: "none",
+              background: "#1A5155",
+              color: "#fff",
+              fontSize: 15,
+              fontWeight: 600,
+              cursor: busyAction ? "not-allowed" : "pointer",
+              opacity: busyAction ? 0.7 : 1,
+              boxShadow: "var(--shadow-elevated)",
+            }}
+          >
+            {busyAction === "quote" ? "Drafting..." : "Create quote"}
+          </button>
+        )}
+        {showEmailAction && (
+          <button
+            type="button"
+            onClick={onCreateEmail}
+            disabled={busyAction !== null}
+            style={{
+              flex: 1,
+              height: 52,
+              borderRadius: 14,
+              border: "none",
+              background: "#1A5155",
+              color: "#fff",
+              fontSize: 15,
+              fontWeight: 600,
+              cursor: busyAction ? "not-allowed" : "pointer",
+              opacity: busyAction ? 0.7 : 1,
+              boxShadow: "var(--shadow-elevated)",
+            }}
+          >
+            {busyAction === "email" ? "Drafting..." : "Draft email"}
+          </button>
+        )}
       </div>
     </div>
   );

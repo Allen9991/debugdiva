@@ -1,3 +1,5 @@
+import { redirect } from "next/navigation";
+
 export default function LoginPage() {
-  return <div>Login page placeholder.</div>;
+  redirect("/today");
 }

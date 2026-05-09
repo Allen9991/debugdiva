@@ -180,7 +180,7 @@ export function QuoteDraftView({ quote: initial, warnings = [], onApproveAndSend
         </div>
 
         {/* Fixed bottom send bar */}
-        <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 p-4">
+        <div className="app-fixed-bottom fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 p-4">
           <div className="max-w-2xl mx-auto">
             {sending ? (
               <button

@@ -106,6 +106,20 @@ export function Mahi({
         <ellipse cx={24 + eyeShift} cy="29" rx={eyeShape.rx} ry={eyeShape.ry} fill="#0B1220" />
         <ellipse cx={40 + eyeShift} cy="29" rx={eyeShape.rx} ry={eyeShape.ry} fill="#0B1220" />
 
+        {eyesOpen && (
+          <g
+            fill="none"
+            stroke="#0B1220"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
+            <circle cx={24 + eyeShift} cy="29" r="6" />
+            <circle cx={40 + eyeShift} cy="29" r="6" />
+            <path d={`M${30 + eyeShift} 29 H${34 + eyeShift}`} />
+          </g>
+        )}
+
         {eyesOpen && happy && (
           <>
             <circle cx={25 + eyeShift} cy="28" r="0.9" fill="#fff" />
@@ -138,14 +152,6 @@ export function Mahi({
           <ellipse cx="32" cy="39" rx="2.4" ry="1.6" fill="#0B1220" />
         )}
 
-        {hardhat && (
-          <g>
-            <ellipse cx="32" cy="14" rx="16" ry="3" fill="#1a1a1a" />
-            <path d="M16 14 C16 7 22 3 32 3 C42 3 48 7 48 14 Z" fill={resolvedAccent} />
-            <rect x="29" y="3" width="6" height="11" fill="rgba(0,0,0,0.18)" />
-            <ellipse cx="22" cy="10" rx="3" ry="1.5" fill="#fff" opacity="0.35" />
-          </g>
-        )}
       </svg>
 
       {showQ && (
