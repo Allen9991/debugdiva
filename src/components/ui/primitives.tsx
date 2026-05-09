@@ -13,7 +13,7 @@ type PillTone =
 
 const pillTones: Record<PillTone, React.CSSProperties> = {
   ink: { background: "var(--ink)", color: "#fff" },
-  soft: { background: "#F1F5F9", color: "#334155" },
+  soft: { background: "var(--focus-soft)", color: "var(--ink)" },
   amber: { background: "var(--amber-bg)", color: "var(--amber-fg)" },
   emerald: { background: "var(--emerald-bg)", color: "var(--emerald-fg)" },
   red: { background: "#FEE2E2", color: "#991B1B" },

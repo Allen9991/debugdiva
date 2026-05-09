@@ -1,68 +1,40 @@
 import { headers } from "next/headers";
+import Link from "next/link";
+import { Eyebrow, Pill } from "@/components/ui/primitives";
 
-type JobStatus =
-  | "new"
-  | "quoted"
-  | "approved"
-  | "in_progress"
-  | "completed"
-  | "invoiced"
-  | "paid";
-
-type Client = {
-  id: string;
-  name: string;
-  email?: string;
-  phone?: string;
-  address?: string;
-};
+type JobStatus = "new" | "quoted" | "approved" | "in_progress" | "completed" | "invoiced" | "paid";
 
 type Job = {
   id: string;
   client_name: string;
-  client: Client;
   location: string;
   description: string;
   status: JobStatus;
   labour_hours: number;
   materials: { name: string; cost: number }[];
-  created_at: string;
-  updated_at: string;
-};
-
-type JobsResponse = {
-  jobs: Job[];
 };
 
 async function getJobs(): Promise<Job[]> {
   const headersList = await headers();
   const host = headersList.get("host") ?? "localhost:3000";
   const protocol = process.env.NODE_ENV === "development" ? "http" : "https";
-
-  const response = await fetch(`${protocol}://${host}/api/jobs`, {
-    cache: "no-store",
-  });
-
-  if (!response.ok) {
-    throw new Error("Failed to load jobs");
-  }
-
-  const data: JobsResponse = await response.json();
+  const response = await fetch(`${protocol}://${host}/api/jobs`, { cache: "no-store" });
+  if (!response.ok) throw new Error("Failed to load jobs");
+  const data = await response.json();
   return data.jobs;
 }
 
-function statusStyles(status: JobStatus) {
-  const styles: Record<JobStatus, string> = {
-    new: "bg-slate-100 text-slate-700",
-    quoted: "bg-blue-50 text-blue-700",
-    approved: "bg-indigo-50 text-indigo-700",
-    in_progress: "bg-amber-50 text-amber-700",
-    completed: "bg-emerald-50 text-emerald-700",
-    invoiced: "bg-purple-50 text-purple-700",
-    paid: "bg-green-50 text-green-700",
+function statusTone(status: JobStatus): { bg: string; fg: string } {
+  const map: Record<JobStatus, { bg: string; fg: string }> = {
+    new:         { bg: "var(--focus-soft)",  fg: "var(--focus)" },
+    quoted:      { bg: "var(--quote-bg)",    fg: "var(--quote-fg)" },
+    approved:    { bg: "var(--focus-soft)",  fg: "var(--focus)" },
+    in_progress: { bg: "var(--amber-bg)",    fg: "var(--amber-fg)" },
+    completed:   { bg: "var(--draft-bg)",    fg: "var(--draft-fg)" },
+    invoiced:    { bg: "var(--quote-bg)",    fg: "var(--quote-fg)" },
+    paid:        { bg: "var(--emerald-bg)",  fg: "var(--emerald-fg)" },
   };
-
-  return styles[status];
+  return map[status];
 }
 
 function formatStatus(status: JobStatus) {
@@ -73,128 +45,135 @@ function materialsTotal(materials: { name: string; cost: number }[]) {
   return materials.reduce((sum, item) => sum + item.cost, 0);
 }
 
+const NAV = [
+  { label: "Today", href: "/" },
+  { label: "Jobs", href: "/jobs", active: true },
+  { label: "Invoices", href: "/invoices" },
+  { label: "Quotes", href: "/quotes" },
+  { label: "Assistant", href: "/assistant" },
+];
+
 export default async function JobsPage() {
   const jobs = await getJobs();
 
   return (
-    <main className="min-h-screen bg-slate-50 text-slate-950">
-      <div className="mx-auto flex min-h-screen max-w-7xl flex-col gap-6 px-4 py-6 md:px-8 lg:flex-row">
-        <aside className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm lg:w-64">
-          <div className="mb-8">
-            <p className="text-2xl font-bold tracking-tight">Admin Ghost</p>
-            <p className="mt-1 text-sm text-slate-500">
-              AI admin for busy tradies
-            </p>
+    <main style={{ minHeight: "100vh", background: "var(--bg)", color: "var(--ink)" }}>
+      <div style={{ maxWidth: 900, margin: "0 auto", padding: "28px 16px", display: "flex", flexDirection: "column", gap: 16 }}>
+
+        <header>
+          <Eyebrow>Job memory</Eyebrow>
+          <h1 style={{ margin: "6px 0 0", fontSize: 26, fontWeight: 800, letterSpacing: -0.5 }}>Jobs</h1>
+          <p style={{ margin: "4px 0 0", fontSize: 13.5, color: "var(--muted)", lineHeight: 1.5 }}>
+            Every job keeps the client, location, materials, captures, invoices, and follow-ups in one place.
+          </p>
+        </header>
+
+        <nav className="gh-mobile-only" style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+          {NAV.map((item) => (
+            <Link
+              key={item.href}
+              href={item.href}
+              style={{
+                padding: "8px 16px",
+                borderRadius: 10,
+                fontSize: 13,
+                fontWeight: 600,
+                textDecoration: "none",
+                background: item.active ? "var(--accent)" : "var(--surface)",
+                color: item.active ? "#fff" : "var(--muted)",
+                border: `1px solid ${item.active ? "transparent" : "var(--border)"}`,
+              }}
+            >
+              {item.label}
+            </Link>
+          ))}
+        </nav>
+
+        <section
+          style={{
+            background: "var(--surface)",
+            borderRadius: "var(--radius-card-lg)",
+            border: "1px solid var(--border)",
+            boxShadow: "var(--shadow-card)",
+            padding: 20,
+          }}
+        >
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
+            <div>
+              <div style={{ fontSize: 17, fontWeight: 800, letterSpacing: -0.3 }}>Active jobs</div>
+              <p style={{ margin: "2px 0 0", fontSize: 13, color: "var(--muted)" }}>
+                Demo plumber jobs for Ghost Plumbing
+              </p>
+            </div>
+            <button
+              style={{
+                height: 38,
+                padding: "0 16px",
+                borderRadius: 10,
+                border: "none",
+                background: "var(--accent)",
+                color: "#fff",
+                fontSize: 13,
+                fontWeight: 600,
+                cursor: "pointer",
+              }}
+            >
+              + New job
+            </button>
           </div>
 
-          <nav className="space-y-2 text-sm font-medium">
-            <a
-              href="/"
-              className="block rounded-2xl px-4 py-3 text-slate-600 hover:bg-slate-100"
-            >
-              Today
-            </a>
-            <a
-              href="/jobs"
-              className="block rounded-2xl bg-slate-950 px-4 py-3 text-white"
-            >
-              Jobs
-            </a>
-            <a
-              href="/invoices"
-              className="block rounded-2xl px-4 py-3 text-slate-600 hover:bg-slate-100"
-            >
-              Invoices
-            </a>
-            <a
-              href="/quotes"
-              className="block rounded-2xl px-4 py-3 text-slate-600 hover:bg-slate-100"
-            >
-              Quotes
-            </a>
-            <a
-              href="/assistant"
-              className="block rounded-2xl px-4 py-3 text-slate-600 hover:bg-slate-100"
-            >
-              Assistant
-            </a>
-          </nav>
-        </aside>
-
-        <section className="flex-1 space-y-6">
-          <header className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm md:p-8">
-            <p className="text-sm font-medium text-blue-600">Job memory</p>
-            <h1 className="mt-2 text-3xl font-bold tracking-tight md:text-4xl">
-              Jobs
-            </h1>
-            <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-600 md:text-base">
-              Every job keeps the client, location, materials, captures,
-              invoices, quotes, and follow-ups in one place.
-            </p>
-          </header>
-
-          <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm md:p-6">
-            <div className="mb-5 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-              <div>
-                <h2 className="text-xl font-bold">Active jobs</h2>
-                <p className="mt-1 text-sm text-slate-500">
-                  Demo plumber jobs for Ghost Plumbing.
-                </p>
-              </div>
-
-              <button className="rounded-2xl bg-slate-950 px-4 py-3 text-sm font-semibold text-white hover:bg-slate-800">
-                + New job
-              </button>
-            </div>
-
-            <div className="grid gap-4">
-              {jobs.map((job) => (
-                <a
+          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+            {jobs.map((job) => {
+              const tone = statusTone(job.status);
+              return (
+                <Link
                   key={job.id}
                   href={`/jobs/${job.id}`}
-                  className="block rounded-3xl border border-slate-200 p-5 transition hover:border-blue-300 hover:bg-blue-50/30"
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    gap: 12,
+                    padding: "14px 16px",
+                    borderRadius: 14,
+                    border: "1px solid var(--border)",
+                    background: "var(--bg)",
+                    textDecoration: "none",
+                    color: "var(--ink)",
+                  }}
                 >
-                  <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
-                    <div>
-                      <div className="flex flex-wrap items-center gap-2">
-                        <span
-                          className={`rounded-full px-3 py-1 text-xs font-semibold capitalize ${statusStyles(
-                            job.status,
-                          )}`}
-                        >
-                          {formatStatus(job.status)}
-                        </span>
-                        <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-600">
-                          {job.labour_hours}h labour
-                        </span>
-                      </div>
-
-                      <h3 className="mt-3 text-lg font-bold text-slate-950">
-                        {job.client_name}
-                      </h3>
-                      <p className="mt-1 text-sm font-medium text-slate-600">
-                        {job.location}
-                      </p>
-                      <p className="mt-3 max-w-3xl text-sm leading-6 text-slate-600">
-                        {job.description}
-                      </p>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 6 }}>
+                      <Pill style={{ background: tone.bg, color: tone.fg }}>{formatStatus(job.status)}</Pill>
+                      <Pill tone="soft">{job.labour_hours}h labour</Pill>
                     </div>
-
-                    <div className="rounded-2xl bg-slate-50 p-4 text-sm md:min-w-44">
-                      <p className="text-slate-500">Materials</p>
-                      <p className="mt-1 text-2xl font-bold">
-                        ${materialsTotal(job.materials).toFixed(2)}
-                      </p>
-                      <p className="mt-1 text-slate-500">
-                        {job.materials.length} item
-                        {job.materials.length === 1 ? "" : "s"}
-                      </p>
+                    <div style={{ fontSize: 15, fontWeight: 700 }}>{job.client_name}</div>
+                    <div style={{ fontSize: 13, color: "var(--muted)", marginTop: 2 }}>{job.location}</div>
+                    <div style={{ fontSize: 13, color: "var(--muted)", marginTop: 4, lineHeight: 1.45 }}>{job.description}</div>
+                  </div>
+                  <div
+                    style={{
+                      flexShrink: 0,
+                      textAlign: "right",
+                      background: "var(--surface)",
+                      border: "1px solid var(--border)",
+                      borderRadius: 12,
+                      padding: "10px 14px",
+                      minWidth: 110,
+                    }}
+                  >
+                    <div style={{ fontSize: 11, color: "var(--muted)", fontWeight: 600 }}>Materials</div>
+                    <div className="tabular-nums" style={{ fontSize: 20, fontWeight: 800, marginTop: 2 }}>
+                      ${materialsTotal(job.materials).toFixed(2)}
+                    </div>
+                    <div style={{ fontSize: 11, color: "var(--muted)", marginTop: 2 }}>
+                      {job.materials.length} item{job.materials.length === 1 ? "" : "s"}
                     </div>
                   </div>
-                </a>
-              ))}
-            </div>
-          </section>
+                </Link>
+              );
+            })}
+          </div>
         </section>
       </div>
     </main>

@@ -1,8 +1,18 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import type { Quote } from "@/lib/types";
 import { QuoteDraftView } from "@/components/output/QuoteDraftView";
+import { Eyebrow } from "@/components/ui/primitives";
+
+const NAV = [
+  { label: "Today", href: "/" },
+  { label: "Jobs", href: "/jobs" },
+  { label: "Invoices", href: "/invoices" },
+  { label: "Quotes", href: "/quotes", active: true },
+  { label: "Assistant", href: "/assistant" },
+];
 
 export default function QuotesPage() {
   const [quote, setQuote] = useState<Quote | null>(null);
@@ -44,31 +54,97 @@ export default function QuotesPage() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center p-6">
-      <div className="text-center max-w-sm">
-        <div className="text-5xl mb-4">📝</div>
-        <h1 className="text-2xl font-bold tracking-tight text-slate-950 mb-2">Quotes</h1>
-        <p className="text-slate-500 mb-8">
-          Send professional quotes before the job starts.
-        </p>
+    <main style={{ minHeight: "100vh", background: "var(--bg)", color: "var(--ink)" }}>
+      <div style={{ maxWidth: 900, margin: "0 auto", padding: "28px 16px", display: "flex", flexDirection: "column", gap: 16 }}>
 
-        {error && (
-          <div className="mb-4 bg-red-50 border border-red-200 rounded-2xl p-3 text-red-700 text-sm">
-            {error}
-          </div>
-        )}
+        <header>
+          <Eyebrow>Output zone</Eyebrow>
+          <h1 style={{ margin: "6px 0 0", fontSize: 26, fontWeight: 800, letterSpacing: -0.5 }}>Quotes</h1>
+          <p style={{ margin: "4px 0 0", fontSize: 13.5, color: "var(--muted)", lineHeight: 1.5 }}>
+            Send professional quotes before the job starts.
+          </p>
+        </header>
 
-        <button
-          onClick={createDemoQuote}
-          disabled={loading}
-          className="w-full bg-slate-950 text-white font-bold py-4 rounded-2xl text-lg hover:bg-slate-800 active:scale-95 transition-all disabled:opacity-50"
+        <nav className="gh-mobile-only" style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+          {NAV.map((item) => (
+            <Link
+              key={item.href}
+              href={item.href}
+              style={{
+                padding: "8px 16px",
+                borderRadius: 10,
+                fontSize: 13,
+                fontWeight: 600,
+                textDecoration: "none",
+                background: item.active ? "var(--accent)" : "var(--surface)",
+                color: item.active ? "#fff" : "var(--muted)",
+                border: `1px solid ${item.active ? "transparent" : "var(--border)"}`,
+              }}
+            >
+              {item.label}
+            </Link>
+          ))}
+        </nav>
+
+        <section
+          style={{
+            background: "var(--surface)",
+            borderRadius: "var(--radius-card-lg)",
+            border: "1px solid var(--border)",
+            boxShadow: "var(--shadow-card)",
+            padding: 28,
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            textAlign: "center",
+            gap: 12,
+          }}
         >
-          {loading ? "Creating quote..." : "Create Quote — Bealey Ave Job"}
-        </button>
-        <p className="text-slate-400 text-xs mt-3">
-          Demo: James Wilson, 14 Bealey Ave tap replacement
-        </p>
+          <div style={{ fontSize: 48 }}>📝</div>
+          <div style={{ fontSize: 19, fontWeight: 800, letterSpacing: -0.3 }}>Create a quote</div>
+          <p style={{ fontSize: 13.5, color: "var(--muted)", maxWidth: 320, lineHeight: 1.5 }}>
+            Demo: James Wilson, 14 Bealey Ave tap replacement
+          </p>
+
+          {error && (
+            <div
+              style={{
+                width: "100%",
+                maxWidth: 360,
+                background: "#FEE2E2",
+                border: "1px solid #FCA5A5",
+                borderRadius: 12,
+                padding: "10px 14px",
+                color: "#991B1B",
+                fontSize: 13,
+              }}
+            >
+              {error}
+            </div>
+          )}
+
+          <button
+            onClick={createDemoQuote}
+            disabled={loading}
+            style={{
+              marginTop: 4,
+              height: 52,
+              padding: "0 28px",
+              borderRadius: 14,
+              border: "none",
+              background: "var(--accent)",
+              color: "#fff",
+              fontSize: 15,
+              fontWeight: 700,
+              cursor: loading ? "not-allowed" : "pointer",
+              opacity: loading ? 0.6 : 1,
+              boxShadow: "var(--shadow-accent)",
+            }}
+          >
+            {loading ? "Creating quote..." : "Create Quote — Bealey Ave Job"}
+          </button>
+        </section>
       </div>
-    </div>
+    </main>
   );
 }

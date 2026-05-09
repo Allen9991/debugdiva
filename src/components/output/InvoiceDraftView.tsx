@@ -21,7 +21,7 @@ function InvoiceGradientHeader({
         position: "relative",
         overflow: "hidden",
         padding: "24px 22px",
-        background: "linear-gradient(160deg, var(--accent) 0%, #C8413B 125%)",
+        background: "linear-gradient(160deg, var(--accent) 0%, #1A5155 125%)",
         color: "#fff",
         boxShadow: "var(--shadow-hero)",
       }}
