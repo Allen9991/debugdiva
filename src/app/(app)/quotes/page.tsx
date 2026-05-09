@@ -1,10 +1,18 @@
 "use client";
 
 import { useState } from "react";
-import { GhostlyFrame } from "@/components/shell/GhostlyFrame";
-import { Card, Eyebrow, Pill } from "@/components/ui/primitives";
+import Link from "next/link";
 import type { Quote } from "@/lib/types";
 import { QuoteDraftView } from "@/components/output/QuoteDraftView";
+import { Eyebrow } from "@/components/ui/primitives";
+
+const NAV = [
+  { label: "Today", href: "/" },
+  { label: "Jobs", href: "/jobs" },
+  { label: "Invoices", href: "/invoices" },
+  { label: "Quotes", href: "/quotes", active: true },
+  { label: "Assistant", href: "/assistant" },
+];
 
 export default function QuotesPage() {
   const [quote, setQuote] = useState<Quote | null>(null);
@@ -15,7 +23,6 @@ export default function QuotesPage() {
   const createDemoQuote = async () => {
     setLoading(true);
     setError(null);
-
     try {
       const res = await fetch("/api/output/quote/draft", {
         method: "POST",
@@ -23,9 +30,7 @@ export default function QuotesPage() {
         body: JSON.stringify({ job_id: "33333333-3333-3333-3333-333333333334" }),
       });
       const data = await res.json();
-      if (!res.ok) {
-        throw new Error(data.error || "Failed to create quote");
-      }
+      if (!res.ok) throw new Error(data.error || "Failed to create quote");
       setQuote(data.quote);
       setWarnings(data.warnings);
     } catch (e) {
@@ -41,136 +46,105 @@ export default function QuotesPage() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ document_id: updated.id, document_type: "quote" }),
     });
-    if (!res.ok) {
-      throw new Error("Failed to send");
-    }
+    if (!res.ok) throw new Error("Failed to send");
   };
 
   if (quote) {
-    return (
-      <QuoteDraftView
-        quote={quote}
-        warnings={warnings}
-        onApproveAndSend={handleSend}
-      />
-    );
+    return <QuoteDraftView quote={quote} warnings={warnings} onApproveAndSend={handleSend} />;
   }
 
   return (
-    <GhostlyFrame
-      eyebrow="Quotes"
-      title="Professional pricing before the job starts."
-      description="Ghostly should help a tradie get from rough scope to client-ready quote without losing their tone or inventing details they never gave."
-      aside={<QuotesAside />}
-    >
-      <div style={{ display: "grid", gap: 18 }}>
-        <Card padding={20}>
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(auto-fit, minmax(170px, 1fr))",
-              gap: 12,
-            }}
-          >
-            <QuoteMetric label="Template style" value="Casual, clear" helper="Friendly enough for tradies, professional enough for clients" />
-            <QuoteMetric label="Expiry" value="Editable" helper="Demo flow can set expiry right before send" />
-            <QuoteMetric label="Linked records" value="Job-based" helper="Quote stays attached to the client and future invoice" />
-          </div>
-        </Card>
+    <main style={{ minHeight: "100vh", background: "var(--bg)", color: "var(--ink)" }}>
+      <div style={{ maxWidth: 900, margin: "0 auto", padding: "28px 16px", display: "flex", flexDirection: "column", gap: 16 }}>
 
-        <Card padding={24}>
-          <Eyebrow>Demo quote</Eyebrow>
-          <h2 style={{ margin: "8px 0 0", fontSize: 26, fontWeight: 800, letterSpacing: -0.7 }}>
-            Bealey Ave tap replacement
-          </h2>
-          <p style={{ margin: "10px 0 0", fontSize: 14.5, lineHeight: 1.6, color: "var(--muted)", maxWidth: 540 }}>
-            Generate a quote draft for James Wilson, then adjust line items and hold to send. This keeps the tab aligned with the same edit-first flow as invoices.
+        <header>
+          <Eyebrow>Output zone</Eyebrow>
+          <h1 style={{ margin: "6px 0 0", fontSize: 26, fontWeight: 800, letterSpacing: -0.5 }}>Quotes</h1>
+          <p style={{ margin: "4px 0 0", fontSize: 13.5, color: "var(--muted)", lineHeight: 1.5 }}>
+            Send professional quotes before the job starts.
+          </p>
+        </header>
+
+        <nav className="gh-mobile-only" style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+          {NAV.map((item) => (
+            <Link
+              key={item.href}
+              href={item.href}
+              style={{
+                padding: "8px 16px",
+                borderRadius: 10,
+                fontSize: 13,
+                fontWeight: 600,
+                textDecoration: "none",
+                background: item.active ? "var(--accent)" : "var(--surface)",
+                color: item.active ? "#fff" : "var(--muted)",
+                border: `1px solid ${item.active ? "transparent" : "var(--border)"}`,
+              }}
+            >
+              {item.label}
+            </Link>
+          ))}
+        </nav>
+
+        <section
+          style={{
+            background: "var(--surface)",
+            borderRadius: "var(--radius-card-lg)",
+            border: "1px solid var(--border)",
+            boxShadow: "var(--shadow-card)",
+            padding: 28,
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            textAlign: "center",
+            gap: 12,
+          }}
+        >
+          <div style={{ fontSize: 48 }}>📝</div>
+          <div style={{ fontSize: 19, fontWeight: 800, letterSpacing: -0.3 }}>Create a quote</div>
+          <p style={{ fontSize: 13.5, color: "var(--muted)", maxWidth: 320, lineHeight: 1.5 }}>
+            Demo: James Wilson, 14 Bealey Ave tap replacement
           </p>
 
-          {error ? (
+          {error && (
             <div
               style={{
-                marginTop: 16,
-                borderRadius: 16,
-                background: "#FEF2F2",
+                width: "100%",
+                maxWidth: 360,
+                background: "#FEE2E2",
+                border: "1px solid #FCA5A5",
+                borderRadius: 12,
+                padding: "10px 14px",
                 color: "#991B1B",
-                border: "1px solid #FECACA",
-                padding: 14,
-                fontSize: 13.5,
+                fontSize: 13,
               }}
             >
               {error}
             </div>
-          ) : null}
+          )}
 
           <button
-            type="button"
             onClick={createDemoQuote}
             disabled={loading}
             style={{
-              marginTop: 18,
-              height: 56,
-              padding: "0 20px",
-              borderRadius: 16,
+              marginTop: 4,
+              height: 52,
+              padding: "0 28px",
+              borderRadius: 14,
               border: "none",
-              background: "var(--ink)",
+              background: "var(--accent)",
               color: "#fff",
-              fontSize: 16,
+              fontSize: 15,
               fontWeight: 700,
-              cursor: loading ? "wait" : "pointer",
-              boxShadow: "var(--shadow-elevated)",
+              cursor: loading ? "not-allowed" : "pointer",
+              opacity: loading ? 0.6 : 1,
+              boxShadow: "var(--shadow-accent)",
             }}
           >
-            {loading ? "Building quote..." : "Create quote draft"}
+            {loading ? "Creating quote..." : "Create Quote — Bealey Ave Job"}
           </button>
-        </Card>
+        </section>
       </div>
-    </GhostlyFrame>
-  );
-}
-
-function QuoteMetric({
-  label,
-  value,
-  helper,
-}: {
-  label: string;
-  value: string;
-  helper: string;
-}) {
-  return (
-    <div style={{ borderRadius: 16, border: "1px solid var(--border)", background: "#fff", padding: 16 }}>
-      <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: 1.2, textTransform: "uppercase", color: "var(--muted)" }}>
-        {label}
-      </div>
-      <div style={{ marginTop: 8, fontSize: 24, fontWeight: 800, letterSpacing: -0.6 }}>
-        {value}
-      </div>
-      <p style={{ margin: "6px 0 0", fontSize: 13.5, lineHeight: 1.5, color: "var(--muted)" }}>
-        {helper}
-      </p>
-    </div>
-  );
-}
-
-function QuotesAside() {
-  return (
-    <div style={{ display: "grid", gap: 16 }}>
-      <Card padding={18}>
-        <Eyebrow>Quote philosophy</Eyebrow>
-        <p style={{ margin: "10px 0 0", fontSize: 14.5, lineHeight: 1.6, color: "var(--muted)" }}>
-          The product promise here is confidence. Ghostly should make the first draft feel thoughtful, but still editable before it reaches a customer.
-        </p>
-      </Card>
-
-      <Card padding={18}>
-        <Eyebrow>Suggested states</Eyebrow>
-        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 12 }}>
-          <Pill tone="amber">Draft</Pill>
-          <Pill tone="accent">Sent</Pill>
-          <Pill tone="emerald">Accepted</Pill>
-        </div>
-      </Card>
-    </div>
+    </main>
   );
 }

@@ -6,33 +6,37 @@
   color-scheme: light;
 
   /* Surfaces & text */
-  --ink: #0B1220;
-  --surface: #FFFFFF;
-  --bg: #F8FAFC;
-  --bg-desktop: #F4F5F8;
-  --muted: #64748B;
-  --faint: #94A3B8;
-  --border: #E2E8F0;
-  --border-strong: #CBD5E1;
+  --ink: #0F1B2D;                  /* deep navy-black */
+  --surface: #EEF4F1;              /* soft sage — main UI/workspace */
+  --bg: #FAF8F4;                   /* warm off-white — page background */
+  --bg-desktop: #F4EFE8;           /* warmer desktop shell background */
+  --muted: #5D7A6E;                /* sage-grey for secondary text */
+  --faint: #8FA89F;                /* faint sage */
+  --border: #D8E8E3;               /* sage-tinted border */
+  --border-strong: #B8D0C8;        /* stronger sage border */
 
-  /* Accent (coral default) */
-  --accent: #FF5E4D;
-  --accent-soft: #FDECEA;
+  /* Accent — teal/blue as the primary action colour */
+  --accent: #2C7A7B;
+  --accent-soft: #E0F0EF;
 
-  /* Forgiveness Mode (warm amber) */
+  /* Focus areas — darker teal for emphasis */
+  --focus: #1A5155;
+  --focus-soft: #E0F0EF;
+
+  /* Forgiveness Mode (warm amber — unchanged, it works) */
   --amber-bg: #FEF3C7;
   --amber-bg-hi: #FCD34D;
   --amber-fg: #92400E;
   --amber-fg-dark: #78350F;
   --amber-border: #FDE68A;
 
-  /* Status pills */
-  --emerald-bg: #D1FAE5;
-  --emerald-fg: #047857;
+  /* Status pills — natural greens for relaxation/success areas */
+  --emerald-bg: #C8E6C9;
+  --emerald-fg: #2E7D32;
   --draft-bg: #FEF3C7;
   --draft-fg: #92400E;
-  --quote-bg: #E0E7FF;
-  --quote-fg: #3730A3;
+  --quote-bg: #E0EEF4;             /* soft blue tint */
+  --quote-fg: #1E5F74;             /* teal-navy */
 
   /* Mascot accents */
   --mahi-yellow: #FFD43B;
@@ -47,12 +51,12 @@
   --radius-card-lg: 20px;
   --radius-hero: 24px;
 
-  /* Shadows */
-  --shadow-card: 0 1px 0 rgba(15, 23, 42, 0.02), 0 4px 14px rgba(15, 23, 42, 0.04);
-  --shadow-elevated: 0 8px 22px rgba(11, 18, 32, 0.22);
-  --shadow-accent: 0 6px 18px rgba(255, 94, 77, 0.4);
-  --shadow-hero: 0 12px 30px rgba(255, 94, 77, 0.33), 0 1px 0 rgba(255, 255, 255, 0.4) inset;
-  --shadow-mahi-float: 0 20px 60px rgba(11, 18, 32, 0.25), 0 0 0 1px rgba(11, 18, 32, 0.06);
+  /* Shadows — updated to match new muted coral accent */
+  --shadow-card: 0 1px 0 rgba(15, 40, 35, 0.02), 0 4px 14px rgba(15, 40, 35, 0.05);
+  --shadow-elevated: 0 8px 22px rgba(11, 27, 45, 0.18);
+  --shadow-accent: 0 6px 18px rgba(44, 122, 123, 0.35);
+  --shadow-hero: 0 12px 30px rgba(44, 122, 123, 0.28), 0 1px 0 rgba(255, 255, 255, 0.4) inset;
+  --shadow-mahi-float: 0 20px 60px rgba(11, 27, 45, 0.22), 0 0 0 1px rgba(11, 27, 45, 0.06);
 }
 
 html,

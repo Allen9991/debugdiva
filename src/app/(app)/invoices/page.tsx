@@ -1,7 +1,6 @@
+import { headers } from "next/headers";
 import Link from "next/link";
-import { GhostlyFrame } from "@/components/shell/GhostlyFrame";
-import { Card, Eyebrow, Pill } from "@/components/ui/primitives";
-import { getBaseUrl } from "@/lib/server/base-url";
+import { Eyebrow, Pill } from "@/components/ui/primitives";
 
 type InvoiceSummary = {
   job_id: string;
@@ -15,179 +14,133 @@ type InvoiceSummary = {
 };
 
 async function getInvoices(): Promise<InvoiceSummary[]> {
-  const baseUrl = await getBaseUrl();
-  const res = await fetch(`${baseUrl}/api/output/invoices`, {
-    cache: "no-store",
-  });
-
-  if (!res.ok) {
-    throw new Error("Failed to load invoices");
-  }
-
+  const headersList = await headers();
+  const host = headersList.get("host") ?? "localhost:3000";
+  const protocol = process.env.NODE_ENV === "development" ? "http" : "https";
+  const res = await fetch(`${protocol}://${host}/api/output/invoices`, { cache: "no-store" });
+  if (!res.ok) throw new Error("Failed to load invoices");
   const data = await res.json();
   return data.invoices;
 }
 
-function money(value: number) {
-  return new Intl.NumberFormat("en-NZ", {
-    style: "currency",
-    currency: "NZD",
-  }).format(value);
-}
-
-function statusTone(status: InvoiceSummary["status"]): "amber" | "accent" | "emerald" {
+function statusTone(status: string): "emerald" | "accent" | "amber" {
   if (status === "paid") return "emerald";
   if (status === "sent") return "accent";
   return "amber";
 }
 
+function money(value: number) {
+  return new Intl.NumberFormat("en-NZ", { style: "currency", currency: "NZD" }).format(value);
+}
+
+const NAV = [
+  { label: "Today", href: "/" },
+  { label: "Jobs", href: "/jobs" },
+  { label: "Invoices", href: "/invoices", active: true },
+  { label: "Quotes", href: "/quotes" },
+  { label: "Assistant", href: "/assistant" },
+];
+
 export default async function InvoicesPage() {
   const invoices = await getInvoices();
-  const paidTotal = invoices
-    .filter((invoice) => invoice.status === "paid")
-    .reduce((sum, invoice) => sum + invoice.total, 0);
-  const draftCount = invoices.filter((invoice) => invoice.status === "draft").length;
-  const outstanding = invoices
-    .filter((invoice) => invoice.status !== "paid")
-    .reduce((sum, invoice) => sum + invoice.total, 0);
 
   return (
-    <GhostlyFrame
-      eyebrow="Output zone"
-      title="Invoices that feel ready to send."
-      description="Ghostly keeps the handoff from job note to polished invoice fast, editable, and trustworthy so cash can move without the late-night admin scramble."
-      aside={<InvoicesAside outstanding={outstanding} draftCount={draftCount} paidTotal={paidTotal} />}
-    >
-      <div style={{ display: "grid", gap: 18 }}>
-        <Card padding={20}>
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
-              gap: 12,
-            }}
-          >
-            <InvoiceMetric label="Outstanding" value={money(outstanding)} helper="Draft or sent invoices still to collect" />
-            <InvoiceMetric label="Draft invoices" value={String(draftCount)} helper="Ready for review before sending" />
-            <InvoiceMetric label="Paid so far" value={money(paidTotal)} helper="Cash already back in the business" />
+    <main style={{ minHeight: "100vh", background: "var(--bg)", color: "var(--ink)" }}>
+      <div style={{ maxWidth: 900, margin: "0 auto", padding: "28px 16px", display: "flex", flexDirection: "column", gap: 16 }}>
+
+        <header style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+          <div>
+            <Eyebrow>Output zone</Eyebrow>
+            <h1 style={{ margin: "6px 0 0", fontSize: 26, fontWeight: 800, letterSpacing: -0.5 }}>Invoices</h1>
+            <p style={{ margin: "4px 0 0", fontSize: 13.5, color: "var(--muted)", lineHeight: 1.5 }}>
+              Turn completed jobs into professional invoices.
+            </p>
           </div>
-        </Card>
+        </header>
 
-        <div style={{ display: "grid", gap: 14 }}>
-          {invoices.map((invoice) => (
+        <nav className="gh-mobile-only" style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+          {NAV.map((item) => (
             <Link
-              key={invoice.job_id}
-              href={`/invoices/${invoice.job_id}`}
-              style={{ textDecoration: "none", color: "inherit" }}
+              key={item.href}
+              href={item.href}
+              style={{
+                padding: "8px 16px",
+                borderRadius: 10,
+                fontSize: 13,
+                fontWeight: 600,
+                textDecoration: "none",
+                background: item.active ? "var(--accent)" : "var(--surface)",
+                color: item.active ? "#fff" : "var(--muted)",
+                border: `1px solid ${item.active ? "transparent" : "var(--border)"}`,
+              }}
             >
-              <Card padding={20}>
-                <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-                  <div
-                    style={{
-                      display: "flex",
-                      justifyContent: "space-between",
-                      alignItems: "flex-start",
-                      gap: 12,
-                      flexWrap: "wrap",
-                    }}
-                  >
-                    <div>
-                      <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                        <Pill tone={statusTone(invoice.status)}>{invoice.status}</Pill>
-                        <Pill tone="outline">
-                          Due {new Date(invoice.due_date).toLocaleDateString("en-NZ")}
-                        </Pill>
-                      </div>
-                      <h2 style={{ margin: "12px 0 0", fontSize: 22, fontWeight: 800, letterSpacing: -0.5 }}>
-                        {invoice.client_name}
-                      </h2>
-                      <p style={{ margin: "5px 0 0", fontSize: 14.5, color: "var(--muted)" }}>
-                        {invoice.location}
-                      </p>
-                    </div>
-
-                    <div className="tabular-nums" style={{ textAlign: "right" }}>
-                      <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: 1.2, textTransform: "uppercase", color: "var(--muted)" }}>
-                        Total
-                      </div>
-                      <div style={{ marginTop: 6, fontSize: 26, fontWeight: 800, letterSpacing: -0.7 }}>
-                        {money(invoice.total)}
-                      </div>
-                    </div>
-                  </div>
-
-                  <p style={{ margin: 0, fontSize: 14.5, lineHeight: 1.6, color: "var(--ink)" }}>
-                    {invoice.description}
-                  </p>
-                </div>
-              </Card>
+              {item.label}
             </Link>
           ))}
-        </div>
+        </nav>
+
+        <section
+          style={{
+            background: "var(--surface)",
+            borderRadius: "var(--radius-card-lg)",
+            border: "1px solid var(--border)",
+            boxShadow: "var(--shadow-card)",
+            padding: 20,
+          }}
+        >
+          <div style={{ marginBottom: 16 }}>
+            <div style={{ fontSize: 17, fontWeight: 800, letterSpacing: -0.3 }}>All invoices</div>
+            <p style={{ margin: "2px 0 0", fontSize: 13, color: "var(--muted)" }}>
+              {invoices.length} invoice{invoices.length === 1 ? "" : "s"} on file
+            </p>
+          </div>
+
+          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+            {invoices.map((invoice) => (
+              <Link
+                key={invoice.job_id}
+                href={`/invoices/${invoice.job_id}`}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  gap: 12,
+                  padding: "14px 16px",
+                  borderRadius: 14,
+                  border: "1px solid var(--border)",
+                  background: "var(--bg)",
+                  textDecoration: "none",
+                  color: "var(--ink)",
+                }}
+              >
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 6 }}>
+                    <Pill tone={statusTone(invoice.status)}>{invoice.status}</Pill>
+                    <Pill tone="soft">Due {new Date(invoice.due_date).toLocaleDateString("en-NZ")}</Pill>
+                  </div>
+                  <div style={{ fontSize: 15, fontWeight: 700 }}>{invoice.client_name}</div>
+                  <div style={{ fontSize: 13, color: "var(--muted)", marginTop: 2 }}>{invoice.location}</div>
+                  <div style={{ fontSize: 13, color: "var(--muted)", marginTop: 4, lineHeight: 1.45 }}>{invoice.description}</div>
+                </div>
+                <div
+                  style={{
+                    flexShrink: 0,
+                    textAlign: "right",
+                    background: "var(--surface)",
+                    border: "1px solid var(--border)",
+                    borderRadius: 12,
+                    padding: "10px 14px",
+                    minWidth: 110,
+                  }}
+                >
+                  <div style={{ fontSize: 11, color: "var(--muted)", fontWeight: 600 }}>Total</div>
+                  <div className="tabular-nums" style={{ fontSize: 20, fontWeight: 800, marginTop: 2 }}>{money(invoice.total)}</div>
+                </div>
+              </Link>
+            ))}
+          </div>
+        </section>
       </div>
-    </GhostlyFrame>
-  );
-}
-
-function InvoiceMetric({
-  label,
-  value,
-  helper,
-}: {
-  label: string;
-  value: string;
-  helper: string;
-}) {
-  return (
-    <div style={{ borderRadius: 16, border: "1px solid var(--border)", background: "#fff", padding: 16 }}>
-      <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: 1.2, textTransform: "uppercase", color: "var(--muted)" }}>
-        {label}
-      </div>
-      <div className="tabular-nums" style={{ marginTop: 8, fontSize: 28, fontWeight: 800, letterSpacing: -0.7 }}>
-        {value}
-      </div>
-      <p style={{ margin: "6px 0 0", fontSize: 13.5, lineHeight: 1.5, color: "var(--muted)" }}>
-        {helper}
-      </p>
-    </div>
-  );
-}
-
-function InvoicesAside({
-  outstanding,
-  draftCount,
-  paidTotal,
-}: {
-  outstanding: number;
-  draftCount: number;
-  paidTotal: number;
-}) {
-  return (
-    <div style={{ display: "grid", gap: 16 }}>
-      <Card padding={18}>
-        <Eyebrow>Cashflow pulse</Eyebrow>
-        <div className="tabular-nums" style={{ marginTop: 8, fontSize: 30, fontWeight: 800, letterSpacing: -0.8 }}>
-          {money(outstanding)}
-        </div>
-        <p style={{ margin: "8px 0 0", fontSize: 14.5, lineHeight: 1.6, color: "var(--muted)" }}>
-          Still sitting in the pipeline. For the Sunday demo, this is where Ghostly proves it is not just neat, it gets businesses paid faster.
-        </p>
-      </Card>
-
-      <Card padding={18}>
-        <Eyebrow>AI angle</Eyebrow>
-        <div style={{ display: "grid", gap: 10, marginTop: 12 }}>
-          <Pill tone="amber">{draftCount} draft invoices to review</Pill>
-          <Pill tone="emerald">{money(paidTotal)} already paid</Pill>
-        </div>
-      </Card>
-
-      <Card padding={18}>
-        <Eyebrow>Best demo step</Eyebrow>
-        <p style={{ margin: "10px 0 0", fontSize: 14.5, lineHeight: 1.6, color: "var(--muted)" }}>
-          Open Sarah&rsquo;s draft after capture, show the GST breakdown, then hold to approve and send.
-        </p>
-      </Card>
-    </div>
+    </main>
   );
 }

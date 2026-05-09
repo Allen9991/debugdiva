@@ -34,7 +34,7 @@ export function FloatingMahiChat() {
           height: 60,
           borderRadius: "50%",
           background:
-            "linear-gradient(135deg, var(--accent), #C8413B)",
+            "linear-gradient(135deg, var(--accent), #1A5155)",
           color: "#fff",
           border: "none",
           cursor: "pointer",
@@ -69,7 +69,7 @@ export function FloatingMahiChat() {
           display: "flex",
           alignItems: "center",
           gap: 10,
-          background: "linear-gradient(135deg, var(--accent), #C8413B)",
+          background: "linear-gradient(135deg, var(--accent), #1A5155)",
           color: "#fff",
         }}
       >

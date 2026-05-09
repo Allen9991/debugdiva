@@ -39,7 +39,7 @@ export interface DesktopTodayProps {
 }
 
 const NAV: { id: string; label: string; href: string; icon: keyof typeof ICONS }[] = [
-  { id: "today", label: "Today", href: "/today", icon: "home" },
+  { id: "today", label: "Today", href: "/", icon: "home" },
   { id: "jobs", label: "Jobs", href: "/jobs", icon: "jobs" },
   { id: "invoices", label: "Invoices", href: "/invoices", icon: "inv" },
   { id: "quotes", label: "Quotes", href: "/quotes", icon: "quotes" },
@@ -113,7 +113,7 @@ function statusTone(status: string): { bg: string; fg: string; label: string } {
     return { bg: "var(--quote-bg)", fg: "var(--quote-fg)", label: "Quote" };
   if (status === "completed")
     return { bg: "var(--draft-bg)", fg: "var(--draft-fg)", label: "Draft" };
-  return { bg: "#F1F5F9", fg: "#334155", label: status };
+  return { bg: "var(--focus-soft)", fg: "var(--muted)", label: status };
 }
 
 function jobAmount(job: DesktopJob): number {
@@ -157,191 +157,7 @@ export function DesktopToday({
   const cashflowWeek = outstandingTotal + cashflowToday;
 
   return (
-    <div
-      style={{
-        display: "grid",
-        gridTemplateColumns: "232px minmax(0, 1fr)",
-        minHeight: "100vh",
-        width: "100%",
-        maxWidth: "100vw",
-        overflowX: "hidden",
-        background: "var(--bg-desktop)",
-        color: "var(--ink)",
-      }}
-    >
-      {/* SIDEBAR */}
-      <aside
-        style={{
-          background: "var(--ink)",
-          color: "#fff",
-          padding: "20px 14px",
-          display: "flex",
-          flexDirection: "column",
-          gap: 4,
-          position: "sticky",
-          top: 0,
-          height: "100vh",
-        }}
-      >
-        <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "4px 8px 16px" }}>
-          <span
-            style={{
-              width: 32,
-              height: 32,
-              borderRadius: 9,
-              background: "linear-gradient(135deg, var(--accent), #C8413B)",
-              display: "inline-flex",
-              alignItems: "center",
-              justifyContent: "center",
-              boxShadow: "0 4px 12px rgba(255,94,77,0.4)",
-            }}
-          >
-            <Mahi size={22} mood="happy" accent="var(--mahi-yellow)" />
-          </span>
-          <div>
-            <div style={{ fontSize: 16, fontWeight: 800, letterSpacing: -0.3 }}>Ghostly</div>
-            <div
-              style={{
-                fontSize: 10,
-                opacity: 0.55,
-                fontWeight: 600,
-                letterSpacing: 0.6,
-                textTransform: "uppercase",
-              }}
-            >
-              Tradie admin
-            </div>
-          </div>
-        </div>
-
-        {NAV.map((item) => {
-          const isActive = item.id === "today";
-          const count =
-            item.id === "today"
-              ? pendingActions.length || undefined
-              : item.id === "jobs"
-                ? jobs.length || undefined
-                : item.id === "invoices"
-                  ? stats.unpaid_invoices || undefined
-                  : item.id === "quotes"
-                    ? stats.quotes_pending || undefined
-                    : item.id === "capture"
-                      ? stats.receipts_unlinked || undefined
-                      : undefined;
-
-          return (
-            <Link
-              key={item.id}
-              href={item.href}
-              style={{
-                height: 36,
-                padding: "0 12px",
-                borderRadius: 9,
-                background: isActive ? "rgba(255,255,255,0.08)" : "transparent",
-                color: isActive ? "#fff" : "rgba(255,255,255,0.7)",
-                display: "flex",
-                alignItems: "center",
-                gap: 11,
-                fontSize: 13,
-                fontWeight: isActive ? 700 : 500,
-                textDecoration: "none",
-                position: "relative",
-              }}
-            >
-              {isActive && (
-                <div
-                  style={{
-                    position: "absolute",
-                    left: -14,
-                    top: 8,
-                    bottom: 8,
-                    width: 3,
-                    borderRadius: 2,
-                    background: "var(--accent)",
-                  }}
-                />
-              )}
-              <span
-                style={{
-                  width: 16,
-                  display: "inline-flex",
-                  color: isActive ? "var(--accent)" : "inherit",
-                }}
-              >
-                {ICONS[item.icon]}
-              </span>
-              <span style={{ flex: 1 }}>{item.label}</span>
-              {count != null && (
-                <span
-                  style={{
-                    fontSize: 10.5,
-                    fontWeight: 700,
-                    padding: "2px 7px",
-                    borderRadius: 999,
-                    background: isActive ? "var(--accent)" : "rgba(255,255,255,0.1)",
-                    color: isActive ? "#fff" : "rgba(255,255,255,0.6)",
-                  }}
-                >
-                  {count}
-                </span>
-              )}
-            </Link>
-          );
-        })}
-
-        <div style={{ flex: 1 }} />
-
-        <div
-          style={{
-            padding: 14,
-            borderRadius: 14,
-            background: "rgba(255,255,255,0.06)",
-            border: "1px solid rgba(255,255,255,0.08)",
-            display: "flex",
-            gap: 10,
-            alignItems: "center",
-          }}
-        >
-          <Mahi size={36} mood="happy" />
-          <div style={{ flex: 1, fontSize: 11.5, lineHeight: 1.4, opacity: 0.85 }}>
-            <b style={{ color: "#fff" }}>Mahi</b> learned your van rate this week.
-          </div>
-        </div>
-
-        <div style={{ padding: "12px 8px 0", display: "flex", alignItems: "center", gap: 10 }}>
-          <div
-            style={{
-              width: 32,
-              height: 32,
-              borderRadius: "50%",
-              background: "#1E293B",
-              color: "#fff",
-              display: "inline-flex",
-              alignItems: "center",
-              justifyContent: "center",
-              fontSize: 12,
-              fontWeight: 700,
-            }}
-          >
-            MK
-          </div>
-          <div style={{ flex: 1 }}>
-            <div style={{ fontSize: 12.5, fontWeight: 600 }}>Mike Kahu</div>
-            <div style={{ fontSize: 10.5, opacity: 0.55 }}>Kahu Plumbing Ltd</div>
-          </div>
-        </div>
-      </aside>
-
-      {/* MAIN */}
-      <main
-        style={{
-          overflowX: "hidden",
-          overflowY: "auto",
-          position: "relative",
-          minWidth: 0,
-          width: "100%",
-        }}
-      >
+      <main style={{ overflow: "auto", position: "relative", minHeight: "100vh", background: "var(--bg-desktop)", color: "var(--ink)" }}>
         {/* TOP BAR */}
         <div
           style={{
@@ -349,8 +165,8 @@ export function DesktopToday({
             alignItems: "center",
             justifyContent: "space-between",
             padding: "20px 28px",
-            borderBottom: "1px solid #E5E7EB",
-            background: "rgba(244,245,248,0.85)",
+            borderBottom: "1px solid var(--border)",
+            background: "rgba(244,239,232,0.85)",
             backdropFilter: "blur(8px)",
             position: "sticky",
             top: 0,
@@ -419,9 +235,9 @@ export function DesktopToday({
               borderRadius: 20,
               padding: "24px 28px",
               background:
-                "linear-gradient(135deg, var(--accent) 0%, #C8413B 80%, var(--ink) 200%)",
+                "linear-gradient(135deg, var(--accent) 0%, #1A5155 80%, var(--ink) 200%)",
               color: "#fff",
-              boxShadow: "0 14px 36px rgba(255,94,77,0.25)",
+              boxShadow: "0 14px 36px rgba(44,122,123,0.25)",
             }}
           >
             <div
@@ -611,7 +427,7 @@ export function DesktopToday({
                   style={{
                     fontSize: 14,
                     lineHeight: 1.55,
-                    color: "#1E293B",
+                    color: "var(--ink)",
                     margin: "6px 0 0",
                   }}
                 >
@@ -703,7 +519,7 @@ export function DesktopToday({
                   width: 140,
                   height: 140,
                   borderRadius: "50%",
-                  background: "rgba(255,94,77,0.13)",
+                  background: "rgba(44,122,123,0.13)",
                 }}
               />
               <div
@@ -720,7 +536,7 @@ export function DesktopToday({
                     height: 6,
                     borderRadius: "50%",
                     background: "var(--accent)",
-                    boxShadow: "0 0 0 4px rgba(255,94,77,0.2)",
+                    boxShadow: "0 0 0 4px rgba(44,122,123,0.2)",
                   }}
                 />
                 <span
@@ -759,7 +575,7 @@ export function DesktopToday({
                   display: "inline-flex",
                   alignItems: "center",
                   gap: 8,
-                  boxShadow: "0 6px 18px rgba(255,94,77,0.4)",
+                  boxShadow: "0 6px 18px rgba(44,122,123,0.4)",
                   position: "relative",
                 }}
               >
@@ -781,7 +597,7 @@ export function DesktopToday({
               style={{
                 borderRadius: 16,
                 background: "#fff",
-                border: "1px solid #E5E7EB",
+                border: "1px solid var(--border)",
                 padding: 18,
               }}
             >
@@ -848,7 +664,7 @@ export function DesktopToday({
                       style={{
                         width: "100%",
                         height: `${h}%`,
-                        background: i === 6 ? "var(--accent)" : "#CBD5E1",
+                        background: i === 6 ? "var(--accent)" : "var(--border-strong)",
                         borderRadius: 4,
                         minHeight: 2,
                       }}
@@ -872,7 +688,7 @@ export function DesktopToday({
               style={{
                 borderRadius: 16,
                 background: "#fff",
-                border: "1px solid #E5E7EB",
+                border: "1px solid var(--border)",
                 padding: 18,
               }}
             >
@@ -912,7 +728,7 @@ export function DesktopToday({
                     time={["08:30", "11:00", "14:30"][i] ?? "—"}
                     client={job.client_name}
                     what={job.description.slice(0, 40)}
-                    color={i === 0 ? "var(--accent)" : "#94A3B8"}
+                    color={i === 0 ? "var(--accent)" : "var(--faint)"}
                   />
                 ))}
                 {recentJobs.length === 0 && (
@@ -927,7 +743,6 @@ export function DesktopToday({
 
         <FloatingMahiChat />
       </main>
-    </div>
   );
 }
 
@@ -983,11 +798,11 @@ function SearchBox() {
   return (
     <div
       style={{
-        width: "min(280px, 28vw)",
+        width: 280,
         height: 36,
         borderRadius: 10,
         background: "#fff",
-        border: "1px solid #E5E7EB",
+        border: "1px solid var(--border)",
         display: "flex",
         alignItems: "center",
         gap: 8,
@@ -1033,12 +848,12 @@ function IconBtn({
         height: 36,
         borderRadius: 10,
         background: "#fff",
-        border: "1px solid #E5E7EB",
+        border: "1px solid var(--border)",
         cursor: "pointer",
         display: "inline-flex",
         alignItems: "center",
         justifyContent: "center",
-        color: "#475569",
+        color: "var(--muted)",
         fontSize: 14,
         fontWeight: 700,
       }}
@@ -1066,14 +881,14 @@ function Panel({
       style={{
         background: "#fff",
         borderRadius: 16,
-        border: "1px solid #E5E7EB",
+        border: "1px solid var(--border)",
         overflow: "hidden",
       }}
     >
       <div
         style={{
           padding: "14px 18px",
-          borderBottom: "1px solid #F1F5F9",
+          borderBottom: "1px solid var(--border)",
           display: "flex",
           alignItems: "center",
           justifyContent: "space-between",
@@ -1139,7 +954,7 @@ function DTRow({
   href: string;
 }) {
   const isHigh = priority === "high";
-  const dotColor = isHigh ? "#F59E0B" : "#94A3B8";
+  const dotColor = isHigh ? "var(--amber-bg-hi)" : "var(--faint)";
   return (
     <div
       style={{
@@ -1147,7 +962,7 @@ function DTRow({
         alignItems: "center",
         gap: 14,
         padding: "14px 18px",
-        borderBottom: "1px solid #F1F5F9",
+        borderBottom: "1px solid var(--border)",
       }}
     >
       <span
@@ -1201,7 +1016,7 @@ function DTRow({
           display: "inline-flex",
           alignItems: "center",
           textDecoration: "none",
-          boxShadow: isHigh ? "0 4px 12px rgba(255,94,77,0.33)" : "none",
+          boxShadow: isHigh ? "0 4px 12px rgba(44,122,123,0.33)" : "none",
         }}
       >
         Review
@@ -1233,7 +1048,7 @@ function DJobRow({
         alignItems: "center",
         gap: 14,
         padding: "14px 18px",
-        borderBottom: "1px solid #F1F5F9",
+        borderBottom: "1px solid var(--border)",
         textDecoration: "none",
         color: "inherit",
       }}
@@ -1244,7 +1059,7 @@ function DJobRow({
           height: 36,
           borderRadius: 10,
           flexShrink: 0,
-          background: "#F1F5F9",
+          background: "var(--focus-soft)",
           color: "var(--muted)",
           display: "inline-flex",
           alignItems: "center",
@@ -1351,10 +1166,10 @@ function Chip({ href, children }: { href: string; children: React.ReactNode }) {
         padding: "0 10px",
         borderRadius: 999,
         background: "#fff",
-        border: "1px solid #E5E7EB",
+        border: "1px solid var(--border)",
         fontSize: 11.5,
         fontWeight: 600,
-        color: "#1E293B",
+        color: "var(--ink)",
         display: "inline-flex",
         alignItems: "center",
         textDecoration: "none",
