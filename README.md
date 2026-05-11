@@ -1,6 +1,6 @@
-# admin-ghost
+# Ghostly
 
-Admin Ghost is a Next.js app scaffold for the team to build against.
+Ghostly is a Next.js app scaffold for the team to build against.
 
 ## Stack
 
